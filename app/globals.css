@@ -1,0 +1,48 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+html,
+body {
+  height: 100%;
+}
+
+body {
+  @apply bg-feu-cream text-feu-ink font-body antialiased;
+  font-size: 16px;
+  line-height: 1.55;
+  background-image: radial-gradient(
+    circle at 1px 1px,
+    rgba(14, 107, 52, 0.12) 1px,
+    transparent 0
+  );
+  background-size: 22px 22px;
+}
+
+::selection {
+  background: #ffc20e;
+  color: #052e17;
+}
+
+/* thin gold scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-thumb {
+  background: #ffc20e;
+  border-radius: 999px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+/* mirror the live camera feed like a real mirror/photobooth glass */
+.mirror {
+  transform: scaleX(-1);
+}
+
+.trace-line {
+  stroke-dasharray: 6 10;
+  stroke-linecap: round;
+}
