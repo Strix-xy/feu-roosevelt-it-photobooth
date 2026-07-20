@@ -333,10 +333,10 @@ export default function Photobooth() {
       )}
 
       <p
-        className="fixed bottom-3 left-0 right-0 text-center font-mono text-[10px] tracking-widest text-feu-greenDark/25 pointer-events-none select-none"
+        className="fixed bottom-2 right-4 sm:right-6 text-right font-mono text-[10px] tracking-widest text-feu-greenDark/25 pointer-events-none select-none"
         aria-hidden
       >
-        Developed by Strix - Zy
+        Developed by Strix
       </p>
     </main>
   );
