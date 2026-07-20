@@ -1,5 +1,11 @@
-export type TemplateId = "portrait" | "landscape";
-export type LayoutKind = "stack" | "row" | "featured" | "featured-row";
+export type TemplateId = "portrait" | "landscape" | "quad-portrait" | "grid-four";
+export type LayoutKind =
+  | "stack"
+  | "row"
+  | "featured"
+  | "featured-row"
+  | "featured-row-quad"
+  | "grid-2x2";
 
 export interface TemplateConfig {
   id: TemplateId;
@@ -33,11 +39,37 @@ export const TEMPLATES: Record<TemplateId, TemplateConfig> = {
   landscape: {
     id: "landscape",
     label: "Landscape strip",
-    description: "1 big shot on the left, 2 shots stacked on the right — every shot stays widescreen.",
+    description: "1 big shot on the left, 2 stacked on the right — every shot stays widescreen.",
     shotCount: 3,
     layout: "featured-row",
     totalW: 1600,
     totalH: 900,
+    headerH: 96,
+    footerH: 82,
+    pad: 28,
+    gap: 18,
+  },
+  "quad-portrait": {
+    id: "quad-portrait",
+    label: "Quad portrait",
+    description: "Extended vertical strip — 4 shots stacked for more poses.",
+    shotCount: 4,
+    layout: "stack",
+    totalW: 820,
+    totalH: 2000,
+    headerH: 116,
+    footerH: 100,
+    pad: 32,
+    gap: 18,
+  },
+  "grid-four": {
+    id: "grid-four",
+    label: "Grid four",
+    description: "A 2×2 grid of four equal shots — great for group moments.",
+    shotCount: 4,
+    layout: "grid-2x2",
+    totalW: 1600,
+    totalH: 1120,
     headerH: 96,
     footerH: 82,
     pad: 28,
@@ -50,6 +82,11 @@ export interface CellRect {
   y: number;
   w: number;
   h: number;
+}
+
+/** True when the strip is wider than it is tall (landscape-oriented layouts). */
+export function isWideTemplate(t: TemplateConfig): boolean {
+  return t.totalW > t.totalH;
 }
 
 /**
@@ -73,9 +110,23 @@ export function getCellRects(t: TemplateConfig): CellRect[] {
     }));
   }
 
+  if (t.layout === "grid-2x2") {
+    const cellW = (contentW - t.gap) / 2;
+    const cellH = (contentH - t.gap) / 2;
+    return [
+      { x: originX, y: originY, w: cellW, h: cellH },
+      { x: originX + cellW + t.gap, y: originY, w: cellW, h: cellH },
+      { x: originX, y: originY + cellH + t.gap, w: cellW, h: cellH },
+      {
+        x: originX + cellW + t.gap,
+        y: originY + cellH + t.gap,
+        w: cellW,
+        h: cellH,
+      },
+    ];
+  }
+
   if (t.layout === "featured") {
-    // big cell on top, 2 small cells side by side below — every cell keeps
-    // a portrait-friendly aspect ratio
     const bigH = (contentH - t.gap) * 0.6;
     const smallH = contentH - t.gap - bigH;
     const smallW = (contentW - t.gap) / 2;
@@ -87,8 +138,6 @@ export function getCellRects(t: TemplateConfig): CellRect[] {
   }
 
   if (t.layout === "featured-row") {
-    // big cell on the left, 2 cells stacked on the right — every cell keeps
-    // a landscape (wide) aspect ratio, unlike an even 3-column split
     const bigW = (contentW - t.gap) * 0.62;
     const smallW = contentW - t.gap - bigW;
     const smallH = (contentH - t.gap) / 2;
@@ -96,6 +145,28 @@ export function getCellRects(t: TemplateConfig): CellRect[] {
       { x: originX, y: originY, w: bigW, h: contentH },
       { x: originX + bigW + t.gap, y: originY, w: smallW, h: smallH },
       { x: originX + bigW + t.gap, y: originY + smallH + t.gap, w: smallW, h: smallH },
+    ];
+  }
+
+  if (t.layout === "featured-row-quad") {
+    const bigW = (contentW - t.gap) * 0.55;
+    const smallW = contentW - t.gap - bigW;
+    const smallH = (contentH - t.gap * 2) / 3;
+    return [
+      { x: originX, y: originY, w: bigW, h: contentH },
+      { x: originX + bigW + t.gap, y: originY, w: smallW, h: smallH },
+      {
+        x: originX + bigW + t.gap,
+        y: originY + smallH + t.gap,
+        w: smallW,
+        h: smallH,
+      },
+      {
+        x: originX + bigW + t.gap,
+        y: originY + 2 * (smallH + t.gap),
+        w: smallW,
+        h: smallH,
+      },
     ];
   }
 
@@ -109,4 +180,4 @@ export function getCellRects(t: TemplateConfig): CellRect[] {
   }));
 }
 
-export type Stage = "start" | "template" | "camera" | "review";
+export type Stage = "start" | "template" | "border" | "camera" | "review";

@@ -1,6 +1,10 @@
 import { TemplateConfig, getCellRects } from "./types";
+import { BorderDesign, BorderStyle, DEFAULT_FOOTER } from "./borders";
 
-const TAGLINE = 'git commit -m "FEURture Dev"';
+export interface ComposeOptions {
+  border?: BorderStyle;
+  footerText?: string;
+}
 
 function loadImage(src: string): Promise<HTMLImageElement> {
   return new Promise((resolve, reject) => {
@@ -19,25 +23,36 @@ function roundedRectPath(
   h: number,
   r: number
 ) {
+  const radius = Math.min(r, w / 2, h / 2);
   ctx.beginPath();
-  ctx.moveTo(x + r, y);
-  ctx.arcTo(x + w, y, x + w, y + h, r);
-  ctx.arcTo(x + w, y + h, x, y + h, r);
-  ctx.arcTo(x, y + h, x, y, r);
-  ctx.arcTo(x, y, x + w, y, r);
+  ctx.moveTo(x + radius, y);
+  ctx.arcTo(x + w, y, x + w, y + h, radius);
+  ctx.arcTo(x + w, y + h, x, y + h, radius);
+  ctx.arcTo(x, y + h, x, y, radius);
+  ctx.arcTo(x, y, x + w, y, radius);
   ctx.closePath();
 }
+
+function hexToRgba(hex: string, alpha: number): string {
+  const r = parseInt(hex.slice(1, 3), 16);
+  const g = parseInt(hex.slice(3, 5), 16);
+  const b = parseInt(hex.slice(5, 7), 16);
+  return `rgba(${r},${g},${b},${alpha})`;
+}
+
+// ─── Textures ───────────────────────────────────────────────────────────────
 
 function drawDotGrid(
   ctx: CanvasRenderingContext2D,
   x: number,
   y: number,
   w: number,
-  h: number
+  h: number,
+  color: string,
+  spacing = 26
 ) {
-  const spacing = 26;
   ctx.save();
-  ctx.fillStyle = "rgba(14,107,52,0.10)";
+  ctx.fillStyle = color;
   for (let gy = y; gy < y + h; gy += spacing) {
     for (let gx = x; gx < x + w; gx += spacing) {
       ctx.beginPath();
@@ -48,12 +63,132 @@ function drawDotGrid(
   ctx.restore();
 }
 
+function drawPolkaDots(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  w: number,
+  h: number,
+  color: string
+) {
+  ctx.save();
+  ctx.fillStyle = color;
+  const spacing = 22;
+  for (let gy = y + 8; gy < y + h; gy += spacing) {
+    for (let gx = x + 8; gx < x + w; gx += spacing) {
+      ctx.beginPath();
+      ctx.arc(gx, gy, 3.5, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+  ctx.restore();
+}
+
+function drawCrosshatch(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  w: number,
+  h: number,
+  color: string
+) {
+  ctx.save();
+  ctx.strokeStyle = color;
+  ctx.lineWidth = 1;
+  const step = 14;
+  for (let i = -h; i < w + h; i += step) {
+    ctx.beginPath();
+    ctx.moveTo(x + i, y);
+    ctx.lineTo(x + i + h, y + h);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(x + i, y + h);
+    ctx.lineTo(x + i + h, y);
+    ctx.stroke();
+  }
+  ctx.restore();
+}
+
+function drawDiagonalStripes(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  w: number,
+  h: number,
+  color: string
+) {
+  ctx.save();
+  ctx.strokeStyle = color;
+  ctx.lineWidth = 6;
+  const step = 28;
+  for (let i = -h; i < w + h; i += step) {
+    ctx.beginPath();
+    ctx.moveTo(x + i, y);
+    ctx.lineTo(x + i + h * 0.6, y + h);
+    ctx.stroke();
+  }
+  ctx.restore();
+}
+
+function drawBubbles(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  w: number,
+  h: number,
+  color: string
+) {
+  ctx.save();
+  ctx.strokeStyle = color;
+  ctx.fillStyle = color;
+  const bubbles: [number, number, number][] = [
+    [0.12, 0.15, 8], [0.88, 0.22, 12], [0.25, 0.45, 6],
+    [0.72, 0.55, 9], [0.45, 0.78, 11], [0.08, 0.82, 5],
+    [0.92, 0.72, 7], [0.55, 0.28, 5], [0.35, 0.62, 8],
+  ];
+  for (const [fx, fy, r] of bubbles) {
+    ctx.globalAlpha = 0.35;
+    ctx.beginPath();
+    ctx.arc(x + w * fx, y + h * fy, r, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.globalAlpha = 0.12;
+    ctx.fill();
+  }
+  ctx.restore();
+}
+
+function drawWaveLine(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  w: number,
+  color: string,
+  amplitude = 5,
+  wavelength = 36
+) {
+  ctx.save();
+  ctx.strokeStyle = color;
+  ctx.lineWidth = 2.5;
+  ctx.lineCap = "round";
+  ctx.beginPath();
+  for (let px = 0; px <= w; px += 2) {
+    const wy = y + Math.sin((px / wavelength) * Math.PI * 2) * amplitude;
+    if (px === 0) ctx.moveTo(x + px, wy);
+    else ctx.lineTo(x + px, wy);
+  }
+  ctx.stroke();
+  ctx.restore();
+}
+
+// ─── Decorations ────────────────────────────────────────────────────────────
+
 function drawCornerBrackets(
   ctx: CanvasRenderingContext2D,
   w: number,
-  h: number
+  h: number,
+  accent: string,
+  len = 30
 ) {
-  const len = 30;
   const inset = 16;
   const corners: [number, number, number, number][] = [
     [inset, inset, 1, 1],
@@ -62,7 +197,7 @@ function drawCornerBrackets(
     [w - inset, h - inset, -1, -1],
   ];
   ctx.save();
-  ctx.strokeStyle = "#FFC20E";
+  ctx.strokeStyle = accent;
   ctx.lineWidth = 3;
   ctx.lineCap = "round";
   for (const [cx, cy, dx, dy] of corners) {
@@ -75,18 +210,93 @@ function drawCornerBrackets(
   ctx.restore();
 }
 
+function drawDiamondCorners(
+  ctx: CanvasRenderingContext2D,
+  w: number,
+  h: number,
+  accent: string,
+  size = 12
+) {
+  const inset = 20;
+  const pts: [number, number][] = [
+    [inset, inset], [w - inset, inset],
+    [inset, h - inset], [w - inset, h - inset],
+  ];
+  ctx.save();
+  ctx.fillStyle = accent;
+  ctx.strokeStyle = accent;
+  ctx.lineWidth = 1.5;
+  for (const [cx, cy] of pts) {
+    ctx.beginPath();
+    ctx.moveTo(cx, cy - size);
+    ctx.lineTo(cx + size, cy);
+    ctx.lineTo(cx, cy + size);
+    ctx.lineTo(cx - size, cy);
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+  }
+  ctx.restore();
+}
+
+function drawOrnateFlourishes(
+  ctx: CanvasRenderingContext2D,
+  w: number,
+  h: number,
+  accent: string
+) {
+  ctx.save();
+  ctx.strokeStyle = accent;
+  ctx.lineWidth = 2.5;
+  ctx.lineCap = "round";
+  const corners = [
+    { x: 18, y: 18, sx: 1, sy: 1 },
+    { x: w - 18, y: 18, sx: -1, sy: 1 },
+    { x: 18, y: h - 18, sx: 1, sy: -1 },
+    { x: w - 18, y: h - 18, sx: -1, sy: -1 },
+  ];
+  for (const c of corners) {
+    ctx.beginPath();
+    ctx.moveTo(c.x, c.y + 28 * c.sy);
+    ctx.quadraticCurveTo(c.x, c.y, c.x + 28 * c.sx, c.y);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.arc(c.x + 8 * c.sx, c.y + 8 * c.sy, 4, 0, Math.PI * 2);
+    ctx.stroke();
+  }
+  ctx.restore();
+}
+
+function drawStarDots(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  accent: string
+) {
+  ctx.save();
+  ctx.fillStyle = accent;
+  const stars: [number, number, number][] = [[6, 6, 3], [22, 4, 2], [4, 20, 2]];
+  for (const [dx, dy, r] of stars) {
+    ctx.beginPath();
+    ctx.arc(x + dx, y + dy, r, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.restore();
+}
+
 function drawCircuitFlank(
   ctx: CanvasRenderingContext2D,
   centerX: number,
   y: number,
   textHalfWidth: number,
-  direction: 1 | -1
+  direction: 1 | -1,
+  accent: string
 ) {
   const startX = centerX + direction * (textHalfWidth + 14);
   const endX = centerX + direction * (textHalfWidth + 70);
   ctx.save();
-  ctx.strokeStyle = "rgba(255,194,14,0.65)";
-  ctx.fillStyle = "rgba(255,194,14,0.65)";
+  ctx.strokeStyle = accent;
+  ctx.fillStyle = accent;
   ctx.lineWidth = 2;
   ctx.beginPath();
   ctx.moveTo(startX, y);
@@ -101,18 +311,560 @@ function drawCircuitFlank(
   ctx.restore();
 }
 
-/**
- * Captures the current video frame, mirrored and center-cropped to match
- * the aspect ratio of the cell this shot will land in (cells can differ in
- * size — e.g. the portrait template's big first shot vs. its small ones).
- */
+function drawTicketNotches(ctx: CanvasRenderingContext2D, w: number, h: number) {
+  ctx.globalCompositeOperation = "destination-out";
+  const notchR = 10;
+  for (const f of [0.28, 0.5, 0.72]) {
+    ctx.beginPath();
+    ctx.arc(0, h * f, notchR, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.arc(w, h * f, notchR, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.globalCompositeOperation = "source-over";
+}
+
+// ─── Card shell ─────────────────────────────────────────────────────────────
+
+function getCardRadius(design: BorderDesign): number {
+  switch (design) {
+    case "royal-crest": return 8;
+    case "blush-glow": return 32;
+    case "violet-clean": return 6;
+    case "ocean-wave": return 24;
+    default: return 28;
+  }
+}
+
+function drawCardBackground(
+  ctx: CanvasRenderingContext2D,
+  w: number,
+  h: number,
+  border: BorderStyle
+) {
+  const r = getCardRadius(border.design);
+  roundedRectPath(ctx, 0, 0, w, h, r);
+  ctx.fillStyle = border.cream;
+  ctx.fill();
+
+  ctx.save();
+  roundedRectPath(ctx, 0, 0, w, h, r);
+  ctx.clip();
+
+  switch (border.design) {
+    case "feu-classic":
+      drawDotGrid(ctx, 0, 0, w, h, border.dotGrid);
+      break;
+    case "royal-crest":
+      drawCrosshatch(ctx, 0, 0, w, h, hexToRgba(border.primary, 0.06));
+      break;
+    case "crimson-ornate":
+      drawDiagonalStripes(ctx, 0, 0, w, h, hexToRgba(border.primary, 0.05));
+      break;
+    case "blush-glow":
+      drawPolkaDots(ctx, 0, 0, w, h, hexToRgba(border.primary, 0.12));
+      break;
+    case "ocean-wave":
+      drawBubbles(ctx, 0, 0, w, h, hexToRgba(border.primary, 0.25));
+      break;
+    // violet-clean: plain background
+  }
+  ctx.restore();
+
+  drawTicketNotches(ctx, w, h);
+}
+
+function drawCardHeader(
+  ctx: CanvasRenderingContext2D,
+  w: number,
+  headerH: number,
+  cardH: number,
+  border: BorderStyle
+) {
+  const titleY = headerH * 0.42;
+  const subY = headerH * 0.74;
+  const headerText = "FEU ROOSEVELT";
+  const subText = "ACES · ALLIANCE OF COMPUTING EDUCATION STUDENTS";
+
+  ctx.save();
+  const r = getCardRadius(border.design);
+  roundedRectPath(ctx, 0, 0, w, cardH, r);
+  ctx.clip();
+
+  switch (border.design) {
+    case "feu-classic":
+      ctx.fillStyle = border.primaryDark;
+      ctx.fillRect(0, 0, w, headerH);
+      break;
+
+    case "royal-crest": {
+      ctx.fillStyle = border.primaryDark;
+      ctx.fillRect(0, 0, w, headerH);
+      ctx.strokeStyle = border.accent;
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(24, 12);
+      ctx.lineTo(w - 24, 12);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(24, headerH - 10);
+      ctx.lineTo(w - 24, headerH - 10);
+      ctx.stroke();
+      break;
+    }
+
+    case "crimson-ornate": {
+      ctx.fillStyle = border.primaryDark;
+      ctx.fillRect(0, 0, w, headerH);
+      // banner ribbon ends
+      ctx.fillStyle = border.accent;
+      ctx.beginPath();
+      ctx.moveTo(0, headerH - 8);
+      ctx.lineTo(20, headerH);
+      ctx.lineTo(0, headerH);
+      ctx.closePath();
+      ctx.fill();
+      ctx.beginPath();
+      ctx.moveTo(w, headerH - 8);
+      ctx.lineTo(w - 20, headerH);
+      ctx.lineTo(w, headerH);
+      ctx.closePath();
+      ctx.fill();
+      break;
+    }
+
+    case "blush-glow": {
+      const grad = ctx.createLinearGradient(0, 0, w, headerH);
+      grad.addColorStop(0, border.primaryDark);
+      grad.addColorStop(1, hexToRgba(border.primary, 0.85));
+      ctx.fillStyle = grad;
+      ctx.fillRect(0, 0, w, headerH);
+      // soft rounded bottom edge
+      ctx.fillStyle = border.cream;
+      ctx.beginPath();
+      ctx.ellipse(w / 2, headerH + 6, w * 0.52, 14, 0, 0, Math.PI * 2);
+      ctx.fill();
+      break;
+    }
+
+    case "violet-clean":
+      // no filled band — just a rule
+      break;
+
+    case "ocean-wave": {
+      ctx.fillStyle = border.primaryDark;
+      ctx.fillRect(0, 0, w, headerH);
+      drawWaveLine(ctx, 20, headerH - 4, w - 40, border.accent, 4, 40);
+      break;
+    }
+  }
+  ctx.restore();
+
+  // title
+  ctx.textAlign = "center";
+  ctx.fillStyle = border.design === "violet-clean" ? border.primaryDark : border.accent;
+  ctx.font =
+    border.design === "violet-clean"
+      ? "300 26px Poppins, sans-serif"
+      : "700 28px Poppins, sans-serif";
+  ctx.fillText(headerText, w / 2, border.design === "violet-clean" ? titleY + 4 : titleY);
+
+  if (border.design === "feu-classic") {
+    const hw = ctx.measureText(headerText).width / 2;
+    drawCircuitFlank(ctx, w / 2, titleY - 6, hw, 1, hexToRgba(border.accent, 0.65));
+    drawCircuitFlank(ctx, w / 2, titleY - 6, hw, -1, hexToRgba(border.accent, 0.65));
+  }
+
+  if (border.design === "violet-clean") {
+    ctx.strokeStyle = border.accent;
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(w * 0.2, titleY + 14);
+    ctx.lineTo(w * 0.8, titleY + 14);
+    ctx.stroke();
+  }
+
+  ctx.fillStyle =
+    border.design === "blush-glow"
+      ? hexToRgba(border.cream, 0.9)
+      : border.design === "violet-clean"
+        ? border.muted
+        : hexToRgba(border.cream, 0.75);
+  ctx.font =
+    border.design === "violet-clean"
+      ? "400 11px Inter, sans-serif"
+      : "600 12px Inter, sans-serif";
+  ctx.fillText(subText, w / 2, subY);
+}
+
+function drawCardDecorations(
+  ctx: CanvasRenderingContext2D,
+  w: number,
+  h: number,
+  border: BorderStyle
+) {
+  switch (border.design) {
+    case "feu-classic":
+      drawCornerBrackets(ctx, w, h, border.accent);
+      break;
+    case "royal-crest":
+      drawDiamondCorners(ctx, w, h, border.accent);
+      // outer double border
+      ctx.save();
+      ctx.strokeStyle = border.accent;
+      ctx.lineWidth = 2;
+      roundedRectPath(ctx, 6, 6, w - 12, h - 12, getCardRadius(border.design) - 2);
+      ctx.stroke();
+      roundedRectPath(ctx, 12, 12, w - 24, h - 24, getCardRadius(border.design) - 4);
+      ctx.strokeStyle = hexToRgba(border.primary, 0.3);
+      ctx.stroke();
+      ctx.restore();
+      break;
+    case "crimson-ornate":
+      drawOrnateFlourishes(ctx, w, h, border.accent);
+      break;
+    case "blush-glow":
+      // soft outer glow ring
+      ctx.save();
+      ctx.strokeStyle = hexToRgba(border.accent, 0.4);
+      ctx.lineWidth = 3;
+      roundedRectPath(ctx, 3, 3, w - 6, h - 6, getCardRadius(border.design));
+      ctx.stroke();
+      ctx.restore();
+      break;
+    case "ocean-wave":
+      drawWaveLine(ctx, 16, h - 80, w - 32, hexToRgba(border.accent, 0.5), 3, 32);
+      break;
+  }
+}
+
+// ─── Photo frames ───────────────────────────────────────────────────────────
+
+function drawFramedPhoto(
+  ctx: CanvasRenderingContext2D,
+  img: HTMLImageElement,
+  x: number,
+  y: number,
+  w: number,
+  h: number,
+  border: BorderStyle
+) {
+  switch (border.design) {
+    case "feu-classic":
+      drawPhotoFeuClassic(ctx, img, x, y, w, h, border);
+      break;
+    case "royal-crest":
+      drawPhotoRoyalCrest(ctx, img, x, y, w, h, border);
+      break;
+    case "crimson-ornate":
+      drawPhotoCrimsonOrnate(ctx, img, x, y, w, h, border);
+      break;
+    case "blush-glow":
+      drawPhotoBlushGlow(ctx, img, x, y, w, h, border);
+      break;
+    case "violet-clean":
+      drawPhotoVioletClean(ctx, img, x, y, w, h, border);
+      break;
+    case "ocean-wave":
+      drawPhotoOceanWave(ctx, img, x, y, w, h, border);
+      break;
+  }
+}
+
+function drawPhotoFeuClassic(
+  ctx: CanvasRenderingContext2D,
+  img: HTMLImageElement,
+  x: number, y: number, w: number, h: number,
+  border: BorderStyle
+) {
+  const mat = 10;
+  ctx.save();
+  ctx.shadowColor = border.shadow;
+  ctx.shadowBlur = 18;
+  ctx.shadowOffsetY = 6;
+  ctx.fillStyle = border.mat;
+  roundedRectPath(ctx, x, y, w, h, 14);
+  ctx.fill();
+  ctx.restore();
+
+  const ix = x + mat, iy = y + mat, iw = w - mat * 2, ih = h - mat * 2;
+  ctx.save();
+  roundedRectPath(ctx, ix, iy, iw, ih, 8);
+  ctx.clip();
+  ctx.drawImage(img, ix, iy, iw, ih);
+  ctx.restore();
+
+  roundedRectPath(ctx, ix, iy, iw, ih, 8);
+  ctx.lineWidth = 2;
+  ctx.strokeStyle = border.primary;
+  ctx.stroke();
+  roundedRectPath(ctx, x, y, w, h, 14);
+  ctx.lineWidth = 2.5;
+  ctx.strokeStyle = border.accent;
+  ctx.stroke();
+
+  ctx.beginPath();
+  ctx.moveTo(x + 4, y + 22);
+  ctx.lineTo(x + 4, y + 4);
+  ctx.lineTo(x + 22, y + 4);
+  ctx.lineWidth = 4;
+  ctx.strokeStyle = border.accent;
+  ctx.lineCap = "round";
+  ctx.stroke();
+}
+
+function drawPhotoRoyalCrest(
+  ctx: CanvasRenderingContext2D,
+  img: HTMLImageElement,
+  x: number, y: number, w: number, h: number,
+  border: BorderStyle
+) {
+  const inset = 8;
+  ctx.save();
+  ctx.shadowColor = border.shadow;
+  ctx.shadowBlur = 12;
+  ctx.shadowOffsetY = 4;
+  ctx.fillStyle = border.mat;
+  ctx.fillRect(x, y, w, h);
+  ctx.restore();
+
+  const ix = x + inset + 4, iy = y + inset + 4, iw = w - (inset + 4) * 2, ih = h - (inset + 4) * 2;
+  ctx.drawImage(img, ix, iy, iw, ih);
+
+  // triple frame
+  ctx.strokeStyle = border.accent;
+  ctx.lineWidth = 3;
+  ctx.strokeRect(x + inset, y + inset, w - inset * 2, h - inset * 2);
+  ctx.strokeStyle = border.primary;
+  ctx.lineWidth = 1.5;
+  ctx.strokeRect(x + inset + 5, y + inset + 5, w - inset * 2 - 10, h - inset * 2 - 10);
+  ctx.strokeStyle = border.accent;
+  ctx.lineWidth = 1;
+  ctx.strokeRect(x + 2, y + 2, w - 4, h - 4);
+}
+
+function drawPhotoCrimsonOrnate(
+  ctx: CanvasRenderingContext2D,
+  img: HTMLImageElement,
+  x: number, y: number, w: number, h: number,
+  border: BorderStyle
+) {
+  const mat = 12;
+  ctx.save();
+  ctx.shadowColor = border.shadow;
+  ctx.shadowBlur = 14;
+  ctx.shadowOffsetY = 5;
+  ctx.fillStyle = border.mat;
+  ctx.fillRect(x, y, w, h);
+  ctx.restore();
+
+  const ix = x + mat, iy = y + mat, iw = w - mat * 2, ih = h - mat * 2;
+  ctx.drawImage(img, ix, iy, iw, ih);
+
+  ctx.lineWidth = 4;
+  ctx.strokeStyle = border.primary;
+  ctx.strokeRect(x + 4, y + 4, w - 8, h - 8);
+  ctx.lineWidth = 2;
+  ctx.strokeStyle = border.accent;
+  ctx.strokeRect(x + 10, y + 10, w - 20, h - 20);
+
+  // scroll flourish top-left
+  ctx.beginPath();
+  ctx.strokeStyle = border.accent;
+  ctx.lineWidth = 2.5;
+  ctx.arc(x + 18, y + 18, 10, Math.PI, Math.PI * 1.8);
+  ctx.stroke();
+}
+
+function drawPhotoBlushGlow(
+  ctx: CanvasRenderingContext2D,
+  img: HTMLImageElement,
+  x: number, y: number, w: number, h: number,
+  border: BorderStyle
+) {
+  const mat = 10;
+  const outerR = 22;
+
+  // neon glow layers
+  for (const [blur, alpha] of [[24, 0.2], [14, 0.35]] as const) {
+    ctx.save();
+    ctx.shadowColor = hexToRgba(border.accent, alpha);
+    ctx.shadowBlur = blur;
+    roundedRectPath(ctx, x, y, w, h, outerR);
+    ctx.strokeStyle = hexToRgba(border.accent, alpha);
+    ctx.lineWidth = 2;
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  ctx.fillStyle = border.mat;
+  roundedRectPath(ctx, x, y, w, h, outerR);
+  ctx.fill();
+
+  const ix = x + mat, iy = y + mat, iw = w - mat * 2, ih = h - mat * 2;
+  ctx.save();
+  roundedRectPath(ctx, ix, iy, iw, ih, 16);
+  ctx.clip();
+  ctx.drawImage(img, ix, iy, iw, ih);
+  ctx.restore();
+
+  roundedRectPath(ctx, ix, iy, iw, ih, 16);
+  ctx.lineWidth = 2;
+  ctx.strokeStyle = border.primary;
+  ctx.stroke();
+  roundedRectPath(ctx, x, y, w, h, outerR);
+  ctx.lineWidth = 2.5;
+  ctx.strokeStyle = border.accent;
+  ctx.stroke();
+
+  drawStarDots(ctx, x + 4, y + 4, border.accent);
+}
+
+function drawPhotoVioletClean(
+  ctx: CanvasRenderingContext2D,
+  img: HTMLImageElement,
+  x: number, y: number, w: number, h: number,
+  border: BorderStyle
+) {
+  const mat = 14;
+  const ix = x + mat, iy = y + mat, iw = w - mat * 2, ih = h - mat * 2;
+
+  ctx.drawImage(img, ix, iy, iw, ih);
+
+  ctx.strokeStyle = border.primary;
+  ctx.lineWidth = 1;
+  ctx.strokeRect(ix, iy, iw, ih);
+  // offset accent tick marks
+  ctx.strokeStyle = border.accent;
+  ctx.lineWidth = 2;
+  const tick = 10;
+  ctx.beginPath();
+  ctx.moveTo(x + 4, y + 4);
+  ctx.lineTo(x + 4 + tick, y + 4);
+  ctx.moveTo(x + 4, y + 4);
+  ctx.lineTo(x + 4, y + 4 + tick);
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.moveTo(x + w - 4, y + h - 4);
+  ctx.lineTo(x + w - 4 - tick, y + h - 4);
+  ctx.moveTo(x + w - 4, y + h - 4);
+  ctx.lineTo(x + w - 4, y + h - 4 - tick);
+  ctx.stroke();
+}
+
+function drawPhotoOceanWave(
+  ctx: CanvasRenderingContext2D,
+  img: HTMLImageElement,
+  x: number, y: number, w: number, h: number,
+  border: BorderStyle
+) {
+  const mat = 10;
+  const outerR = 20;
+
+  ctx.save();
+  ctx.shadowColor = border.shadow;
+  ctx.shadowBlur = 14;
+  ctx.shadowOffsetY = 4;
+  ctx.fillStyle = border.mat;
+  roundedRectPath(ctx, x, y, w, h, outerR);
+  ctx.fill();
+  ctx.restore();
+
+  const ix = x + mat, iy = y + mat, iw = w - mat * 2, ih = h - mat * 2;
+  ctx.save();
+  roundedRectPath(ctx, ix, iy, iw, ih, 14);
+  ctx.clip();
+  ctx.drawImage(img, ix, iy, iw, ih);
+  ctx.restore();
+
+  roundedRectPath(ctx, ix, iy, iw, ih, 14);
+  ctx.lineWidth = 2;
+  ctx.strokeStyle = border.primary;
+  ctx.stroke();
+  roundedRectPath(ctx, x, y, w, h, outerR);
+  ctx.lineWidth = 2;
+  ctx.strokeStyle = border.accent;
+  ctx.stroke();
+
+  drawWaveLine(ctx, x + 8, y + 6, w - 16, border.accent, 3, 20);
+}
+
+// ─── Footer ─────────────────────────────────────────────────────────────────
+
+function drawCardFooter(
+  ctx: CanvasRenderingContext2D,
+  w: number,
+  h: number,
+  footerH: number,
+  pad: number,
+  border: BorderStyle,
+  footerText: string
+) {
+  const footerY = h - footerH;
+
+  switch (border.design) {
+    case "feu-classic":
+    case "royal-crest":
+    case "crimson-ornate":
+      ctx.strokeStyle = border.accent;
+      ctx.lineWidth = border.design === "royal-crest" ? 2.5 : 2;
+      ctx.beginPath();
+      ctx.moveTo(pad, footerY);
+      ctx.lineTo(w - pad, footerY);
+      ctx.stroke();
+      break;
+
+    case "blush-glow":
+      ctx.save();
+      ctx.strokeStyle = hexToRgba(border.accent, 0.6);
+      ctx.lineWidth = 2;
+      ctx.setLineDash([6, 4]);
+      ctx.beginPath();
+      ctx.moveTo(pad, footerY);
+      ctx.lineTo(w - pad, footerY);
+      ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.restore();
+      break;
+
+    case "violet-clean":
+      ctx.strokeStyle = border.accent;
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(w * 0.15, footerY);
+      ctx.lineTo(w * 0.85, footerY);
+      ctx.stroke();
+      break;
+
+    case "ocean-wave":
+      drawWaveLine(ctx, pad, footerY, w - pad * 2, border.accent, 4, 36);
+      break;
+  }
+
+  ctx.fillStyle = border.tagline;
+  ctx.font = "700 23px 'JetBrains Mono', monospace";
+  ctx.textAlign = "center";
+  ctx.fillText(`> ${footerText}`, w / 2, footerY + 36);
+
+  ctx.font = "600 17px Inter, sans-serif";
+  ctx.fillStyle = border.muted;
+  const date = new Date().toLocaleDateString(undefined, {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+  });
+  ctx.fillText(date, w / 2, footerY + 64);
+}
+
+// ─── Public API ─────────────────────────────────────────────────────────────
+
 export async function captureShot(
   video: HTMLVideoElement,
   template: TemplateConfig,
   shotIndex: number
 ): Promise<string> {
   const rect = getCellRects(template)[shotIndex];
-  // capture at 2x the on-strip cell size for crisp output
   const outW = Math.round(rect.w * 1.4);
   const outH = Math.round(rect.h * 1.4);
 
@@ -124,10 +876,7 @@ export async function captureShot(
   const vw = video.videoWidth;
   const vh = video.videoHeight;
   const targetRatio = outW / outH;
-  let sx = 0,
-    sy = 0,
-    sw = vw,
-    sh = vh;
+  let sx = 0, sy = 0, sw = vw, sh = vh;
   if (vw / vh > targetRatio) {
     sw = vh * targetRatio;
     sx = (vw - sw) / 2;
@@ -145,71 +894,13 @@ export async function captureShot(
   return canvas.toDataURL("image/png");
 }
 
-/**
- * Draws one photo into its cell with a creative frame: soft drop shadow,
- * a cream mat, a thin green pinstripe, and a gold outer hairline.
- */
-function drawFramedPhoto(
-  ctx: CanvasRenderingContext2D,
-  img: HTMLImageElement,
-  x: number,
-  y: number,
-  w: number,
-  h: number
-) {
-  const mat = 10;
-
-  ctx.save();
-  ctx.shadowColor = "rgba(5,46,23,0.35)";
-  ctx.shadowBlur = 18;
-  ctx.shadowOffsetY = 6;
-  ctx.fillStyle = "#FAF6EC";
-  roundedRectPath(ctx, x, y, w, h, 14);
-  ctx.fill();
-  ctx.restore();
-
-  // photo, clipped to rounded inset
-  const ix = x + mat;
-  const iy = y + mat;
-  const iw = w - mat * 2;
-  const ih = h - mat * 2;
-  ctx.save();
-  roundedRectPath(ctx, ix, iy, iw, ih, 8);
-  ctx.clip();
-  ctx.drawImage(img, ix, iy, iw, ih);
-  ctx.restore();
-
-  // green pinstripe, then gold hairline
-  roundedRectPath(ctx, ix, iy, iw, ih, 8);
-  ctx.lineWidth = 2;
-  ctx.strokeStyle = "#0E6B34";
-  ctx.stroke();
-
-  roundedRectPath(ctx, x, y, w, h, 14);
-  ctx.lineWidth = 2.5;
-  ctx.strokeStyle = "#FFC20E";
-  ctx.stroke();
-
-  // small gold corner accent (top-left)
-  ctx.beginPath();
-  ctx.moveTo(x + 4, y + 22);
-  ctx.lineTo(x + 4, y + 4);
-  ctx.lineTo(x + 22, y + 4);
-  ctx.lineWidth = 4;
-  ctx.strokeStyle = "#FFC20E";
-  ctx.lineCap = "round";
-  ctx.stroke();
-}
-
-/**
- * Composes the final strip: a rounded, ticket-notched cream card in the
- * template's exact aspect ratio, with a deep-green header, framed photos,
- * and a footer carrying the date + a witty IT-department tagline.
- */
 export async function composeStrip(
   shots: string[],
-  template: TemplateConfig
+  template: TemplateConfig,
+  options: ComposeOptions = {}
 ): Promise<string> {
+  const border = options.border ?? BORDER_STYLES_FALLBACK;
+  const footerText = options.footerText ?? DEFAULT_FOOTER;
   const { totalW: w, totalH: h, headerH, footerH, pad } = template;
   const rects = getCellRects(template);
 
@@ -218,88 +909,174 @@ export async function composeStrip(
   canvas.height = h;
   const ctx = canvas.getContext("2d")!;
 
-  // transparent canvas, then punch the rounded card shape with side notches
-  roundedRectPath(ctx, 0, 0, w, h, 28);
-  ctx.fillStyle = "#FAF6EC";
-  ctx.fill();
+  drawCardBackground(ctx, w, h, border);
+  drawCardHeader(ctx, w, headerH, h, border);
+  drawCardDecorations(ctx, w, h, border);
 
-  // faint PCB-style dot grid across the whole card (a subtle "design" texture)
-  ctx.save();
-  roundedRectPath(ctx, 0, 0, w, h, 28);
-  ctx.clip();
-  drawDotGrid(ctx, 0, 0, w, h);
-  ctx.restore();
-
-  ctx.globalCompositeOperation = "destination-out";
-  const notchR = 10;
-  const notchY = [0.28, 0.5, 0.72];
-  for (const f of notchY) {
-    ctx.beginPath();
-    ctx.arc(0, h * f, notchR, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.beginPath();
-    ctx.arc(w, h * f, notchR, 0, Math.PI * 2);
-    ctx.fill();
-  }
-  ctx.globalCompositeOperation = "source-over";
-
-  // deep green header band (clipped to the card's rounded shape)
-  ctx.save();
-  roundedRectPath(ctx, 0, 0, w, h, 28);
-  ctx.clip();
-  ctx.fillStyle = "#052E17";
-  ctx.fillRect(0, 0, w, headerH);
-  ctx.restore();
-
-  ctx.fillStyle = "#FFC20E";
-  ctx.font = "700 28px Poppins, sans-serif";
-  ctx.textAlign = "center";
-  const headerText = "FEU ROOSEVELT";
-  const titleY = headerH * 0.42;
-  ctx.fillText(headerText, w / 2, titleY);
-  const headerHalfWidth = ctx.measureText(headerText).width / 2;
-  drawCircuitFlank(ctx, w / 2, titleY - 6, headerHalfWidth, 1);
-  drawCircuitFlank(ctx, w / 2, titleY - 6, headerHalfWidth, -1);
-
-  ctx.fillStyle = "rgba(250,246,236,0.75)";
-  ctx.font = "600 12px Inter, sans-serif";
-  ctx.fillText(
-    "ACES · ALLIANCE OF COMPUTING EDUCATION STUDENTS",
-    w / 2,
-    headerH * 0.74
-  );
-
-  // camera-style corner brackets framing the whole card
-  drawCornerBrackets(ctx, w, h);
-
-  // photo cells (rects vary in size per template layout — e.g. 1 big + 2 small)
   for (let i = 0; i < shots.length; i++) {
     const img = await loadImage(shots[i]);
     const r = rects[i];
-    drawFramedPhoto(ctx, img, r.x, r.y, r.w, r.h);
+    drawFramedPhoto(ctx, img, r.x, r.y, r.w, r.h, border);
   }
 
-  // footer: gold hairline, tagline, date
-  const footerY = h - footerH;
-  ctx.strokeStyle = "#FFC20E";
-  ctx.lineWidth = 2;
-  ctx.beginPath();
-  ctx.moveTo(pad, footerY);
-  ctx.lineTo(w - pad, footerY);
-  ctx.stroke();
-
-  ctx.fillStyle = "#0E6B34";
-  ctx.font = "700 23px 'JetBrains Mono', monospace";
-  ctx.fillText(`> ${TAGLINE}`, w / 2, footerY + 36);
-
-  ctx.font = "500 13px Inter, sans-serif";
-  ctx.fillStyle = "#5B6B60";
-  const date = new Date().toLocaleDateString(undefined, {
-    year: "numeric",
-    month: "short",
-    day: "numeric",
-  });
-  ctx.fillText(date, w / 2, footerY + 60);
+  drawCardFooter(ctx, w, h, footerH, pad, border, footerText);
 
   return canvas.toDataURL("image/png");
+}
+
+const BORDER_STYLES_FALLBACK: BorderStyle = {
+  id: "feu",
+  label: "FEU Classic",
+  description: "",
+  design: "feu-classic",
+  primary: "#0E6B34",
+  primaryDark: "#052E17",
+  accent: "#FFC20E",
+  cream: "#FAF6EC",
+  mat: "#FAF6EC",
+  tagline: "#0E6B34",
+  muted: "#5B6B60",
+  dotGrid: "rgba(14,107,52,0.10)",
+  shadow: "rgba(5,46,23,0.35)",
+};
+
+/** Renders a full strip preview for the border carousel — 3 photo slots at print resolution. */
+export function renderBorderPreview(border: BorderStyle): string {
+  const w = 480;
+  const h = 1170;
+  const headerH = 68;
+  const footerH = 58;
+  const pad = 19;
+  const gap = 13;
+  const shotCount = 3;
+
+  const canvas = document.createElement("canvas");
+  canvas.width = w;
+  canvas.height = h;
+  const ctx = canvas.getContext("2d")!;
+
+  const previewBorder = { ...border };
+  drawCardBackground(ctx, w, h, previewBorder);
+  drawCardHeader(ctx, w, headerH, h, previewBorder);
+  drawCardDecorations(ctx, w, h, previewBorder);
+
+  const contentW = w - pad * 2;
+  const contentH = h - headerH - footerH - pad * 2;
+  const originY = headerH + pad;
+  const cellH = (contentH - gap * (shotCount - 1)) / shotCount;
+
+  for (let i = 0; i < shotCount; i++) {
+    const y = originY + i * (cellH + gap);
+    drawFramedPhotoSync(ctx, pad, y, contentW, cellH, border, i);
+  }
+
+  drawCardFooter(ctx, w, h, footerH, pad, previewBorder, 'git commit -m "your tagline"');
+
+  return canvas.toDataURL("image/png");
+}
+
+function fillPhotoPlaceholder(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  w: number,
+  h: number,
+  border: BorderStyle,
+  index: number
+) {
+  const shades = [0.14, 0.1, 0.16];
+  const grad = ctx.createLinearGradient(x, y, x + w, y + h);
+  grad.addColorStop(0, hexToRgba(border.primary, shades[index % 3]));
+  grad.addColorStop(1, hexToRgba(border.accent, 0.22));
+  ctx.fillStyle = grad;
+  ctx.fillRect(x, y, w, h);
+
+  ctx.fillStyle = hexToRgba(border.muted, 0.35);
+  ctx.font = "500 11px Inter, sans-serif";
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.fillText(`Photo ${index + 1}`, x + w / 2, y + h / 2);
+}
+
+function drawFramedPhotoSync(
+  ctx: CanvasRenderingContext2D,
+  x: number, y: number, w: number, h: number,
+  border: BorderStyle,
+  photoIndex = 0
+) {
+  const mat = border.design === "violet-clean" ? 14 : 10;
+  const outerR =
+    border.design === "blush-glow" || border.design === "ocean-wave" ? 20 :
+    border.design === "royal-crest" ? 0 : 14;
+
+  if (border.design === "royal-crest") {
+    ctx.fillStyle = border.mat;
+    ctx.fillRect(x, y, w, h);
+    fillPhotoPlaceholder(ctx, x + 12, y + 12, w - 24, h - 24, border, photoIndex);
+    ctx.strokeStyle = border.accent;
+    ctx.lineWidth = 2;
+    ctx.strokeRect(x + 8, y + 8, w - 16, h - 16);
+    ctx.strokeStyle = border.primary;
+    ctx.lineWidth = 1;
+    ctx.strokeRect(x + 13, y + 13, w - 26, h - 26);
+    return;
+  }
+
+  if (border.design === "violet-clean") {
+    fillPhotoPlaceholder(ctx, x + mat, y + mat, w - mat * 2, h - mat * 2, border, photoIndex);
+    ctx.strokeStyle = border.primary;
+    ctx.lineWidth = 1;
+    ctx.strokeRect(x + mat, y + mat, w - mat * 2, h - mat * 2);
+    return;
+  }
+
+  ctx.fillStyle = border.mat;
+  if (outerR > 0) {
+    roundedRectPath(ctx, x, y, w, h, outerR);
+    ctx.fill();
+  } else {
+    ctx.fillRect(x, y, w, h);
+  }
+
+  const ix = x + mat, iy = y + mat, iw = w - mat * 2, ih = h - mat * 2;
+  fillPhotoPlaceholder(ctx, ix, iy, iw, ih, border, photoIndex);
+
+  ctx.strokeStyle = border.primary;
+  ctx.lineWidth = 2;
+  if (outerR > 0) {
+    roundedRectPath(ctx, ix, iy, iw, ih, outerR - 4);
+    ctx.stroke();
+    roundedRectPath(ctx, x, y, w, h, outerR);
+    ctx.strokeStyle = border.accent;
+    ctx.lineWidth = 2.5;
+    ctx.stroke();
+  }
+
+  if (border.design === "feu-classic") {
+    ctx.beginPath();
+    ctx.moveTo(x + 4, y + 18);
+    ctx.lineTo(x + 4, y + 4);
+    ctx.lineTo(x + 18, y + 4);
+    ctx.lineWidth = 3;
+    ctx.strokeStyle = border.accent;
+    ctx.lineCap = "round";
+    ctx.stroke();
+  }
+
+  if (border.design === "blush-glow") {
+    drawStarDots(ctx, x + 4, y + 4, border.accent);
+  }
+
+  if (border.design === "ocean-wave") {
+    drawWaveLine(ctx, x + 6, y + 5, w - 12, border.accent, 2, 16);
+  }
+
+  if (border.design === "crimson-ornate") {
+    ctx.strokeStyle = border.accent;
+    ctx.lineWidth = 2;
+    ctx.strokeRect(x + 6, y + 6, w - 12, h - 12);
+    ctx.strokeStyle = border.primary;
+    ctx.lineWidth = 3;
+    ctx.strokeRect(x + 2, y + 2, w - 4, h - 4);
+  }
 }

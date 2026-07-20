@@ -6,8 +6,11 @@ import CameraView from "./CameraView";
 import Countdown from "./Countdown";
 import TemplatePreview from "./TemplatePreview";
 import LayoutGlyph from "./LayoutGlyph";
+import BorderCarousel from "./BorderCarousel";
+import StartWelcomeCard from "./StartWelcomeCard";
 import ResultScreen from "./ResultScreen";
-import { Stage, TemplateId, TEMPLATES, getCellRects } from "@/lib/types";
+import { Stage, TemplateId, TEMPLATES, getCellRects, isWideTemplate } from "@/lib/types";
+import { BorderStyleId, BORDER_STYLES, DEFAULT_FOOTER } from "@/lib/borders";
 import { captureShot, composeStrip } from "@/lib/capture";
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
@@ -29,6 +32,8 @@ function BackButton({ onClick, label }: { onClick: () => void; label: string }) 
 export default function Photobooth() {
   const [stage, setStage] = useState<Stage>("start");
   const [templateId, setTemplateId] = useState<TemplateId>("portrait");
+  const [borderId, setBorderId] = useState<BorderStyleId>("feu");
+  const [footerText, setFooterText] = useState(DEFAULT_FOOTER);
   const [shots, setShots] = useState<string[]>([]);
   const [countdownValue, setCountdownValue] = useState<number | "smile" | null>(null);
   const [flash, setFlash] = useState(false);
@@ -37,8 +42,10 @@ export default function Photobooth() {
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const template = TEMPLATES[templateId];
+  const border = BORDER_STYLES[borderId];
   const rects = getCellRects(template);
   const currentRect = rects[Math.min(shots.length, rects.length - 1)];
+  const wide = isWideTemplate(template);
 
   const runSession = useCallback(async () => {
     if (capturing || !videoRef.current) return;
@@ -65,17 +72,19 @@ export default function Photobooth() {
       if (i < template.shotCount - 1) await sleep(500);
     }
 
-    const strip = await composeStrip(collected, template);
+    const strip = await composeStrip(collected, template, { border, footerText });
     setFinalStrip(strip);
     setStage("review");
     setCapturing(false);
-  }, [capturing, template]);
+  }, [capturing, template, border, footerText]);
 
   function goBack() {
     if (stage === "template") {
       setStage("start");
-    } else if (stage === "camera") {
+    } else if (stage === "border") {
       setStage("template");
+    } else if (stage === "camera") {
+      setStage("border");
       setShots([]);
       setCapturing(false);
       setCountdownValue(null);
@@ -89,111 +98,87 @@ export default function Photobooth() {
     setFinalStrip(null);
     setCapturing(false);
     setCountdownValue(null);
+    setFooterText(DEFAULT_FOOTER);
+    setBorderId("feu");
   }
 
+  const stageTitle =
+    stage === "template"
+      ? "Choose your strip"
+      : stage === "border"
+        ? "Choose your border"
+        : template.label;
+
   return (
-    <main className="min-h-screen flex flex-col items-center p-4 sm:p-6 gap-4">
+    <main
+      className={`min-h-screen flex flex-col items-center p-4 sm:p-6 ${
+        stage === "start" ? "justify-center" : "gap-4"
+      }`}
+    >
       {stage === "start" ? (
-        <header className="text-center mt-4 sm:mt-8 shrink-0">
-          <p className="font-mono text-xs tracking-[0.3em] text-feu-green/70 uppercase mb-1">
-            Information Technology Department
-          </p>
-          <h1 className="font-display font-extrabold text-3xl sm:text-4xl text-feu-greenDark tracking-tight">
-            FEU Roosevelt <span className="text-feu-gold">IT</span> Photobooth
-          </h1>
-        </header>
+        <motion.div className="flex flex-col items-center justify-center w-full max-w-md gap-6 sm:gap-8 text-center min-h-[calc(100dvh-3rem)]">
+          <header className="shrink-0">
+            <p className="font-mono text-xs tracking-[0.3em] text-feu-green/70 uppercase mb-1">
+              Information Technology Department
+            </p>
+            <h1 className="font-display font-extrabold text-3xl sm:text-4xl text-feu-greenDark tracking-tight">
+              FEU Roosevelt <span className="text-feu-gold">IT</span> Photobooth
+            </h1>
+          </header>
+
+          <AnimatePresence mode="wait">
+            <motion.div
+              key="start"
+              initial={{ opacity: 0, y: 16 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -16 }}
+              className="flex flex-col items-center gap-6 w-full"
+            >
+              <StartWelcomeCard />
+              <button
+                onClick={() => setStage("template")}
+                className="px-8 py-4 rounded-full bg-feu-gold text-feu-greenDark font-display font-bold text-lg shadow-gold hover:brightness-105 active:scale-95 transition-all"
+              >
+                Start Photobooth
+              </button>
+            </motion.div>
+          </AnimatePresence>
+        </motion.div>
       ) : (
-        (stage === "template" || stage === "camera") && (
-          <div className="w-full max-w-5xl flex items-center justify-between shrink-0">
+        <>
+      {(stage === "template" || stage === "border" || stage === "camera") && (
+          <motion.div className="w-full max-w-5xl flex items-center justify-between shrink-0">
             <BackButton onClick={goBack} label="Back" />
             <p className="font-display font-bold text-base sm:text-lg text-feu-greenDark">
-              {stage === "template" ? "Choose your strip" : template.label}
+              {stageTitle}
             </p>
             <span className="w-12" />
-          </div>
-        )
-      )}
+          </motion.div>
+          )}
 
       <AnimatePresence mode="wait">
-        {stage === "start" && (
-          <motion.div
-            key="start"
-            initial={{ opacity: 0, y: 16 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -16 }}
-            className="flex flex-col items-center gap-6 text-center max-w-md w-full"
-          >
-            <div
-              className="relative w-full rounded-3xl bg-feu-greenDark shadow-panel border border-feu-gold/30 flex flex-col items-center gap-5 p-8 overflow-hidden"
-              style={{
-                backgroundImage:
-                  "radial-gradient(circle, rgba(255,194,14,0.14) 1px, transparent 1px)",
-                backgroundSize: "18px 18px",
-              }}
-            >
-              <span className="absolute top-4 left-4 w-4 h-4 border-t-2 border-l-2 border-feu-gold/70 rounded-tl" />
-              <span className="absolute top-4 right-4 w-4 h-4 border-t-2 border-r-2 border-feu-gold/70 rounded-tr" />
-              <span className="absolute bottom-4 left-4 w-4 h-4 border-b-2 border-l-2 border-feu-gold/70 rounded-bl" />
-              <span className="absolute bottom-4 right-4 w-4 h-4 border-b-2 border-r-2 border-feu-gold/70 rounded-br" />
-
-              <div className="w-20 h-20 rounded-full bg-feu-gold flex items-center justify-center shadow-gold mt-2">
-                <svg width="36" height="36" viewBox="0 0 24 24" fill="none">
-                  <path
-                    d="M4 8a2 2 0 0 1 2-2h2l1.5-2h5L16 6h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V8Z"
-                    stroke="#052E17"
-                    strokeWidth="1.8"
-                  />
-                  <circle cx="12" cy="13" r="3.4" stroke="#052E17" strokeWidth="1.8" />
-                </svg>
-              </div>
-
-              <div className="flex gap-2">
-                <div className="w-9 h-12 rounded-md bg-feu-cream/10 border border-feu-gold/40" />
-                <div className="w-9 h-12 rounded-md bg-feu-cream/10 border border-feu-gold/40" />
-                <div className="w-9 h-12 rounded-md bg-feu-cream/10 border border-feu-gold/40" />
-              </div>
-
-              <p className="text-feu-cream/85 font-body text-base leading-relaxed">
-                Strike a pose — we'll count you in and capture 3 shots
-                automatically. Scan the QR code afterward to send it
-                straight to your phone.
-              </p>
-
-              <p className="font-mono text-[10px] tracking-widest text-feu-gold/60 uppercase">
-                ACES · Alliance of Computing Education Students
-              </p>
-            </div>
-            <button
-              onClick={() => setStage("template")}
-              className="px-8 py-4 rounded-full bg-feu-gold text-feu-greenDark font-display font-bold text-lg shadow-gold hover:brightness-105 active:scale-95 transition-all"
-            >
-              Start Photobooth
-            </button>
-          </motion.div>
-        )}
-
         {stage === "template" && (
           <motion.div
             key="template"
             initial={{ opacity: 0, y: 16 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -16 }}
-            className="flex flex-1 flex-col items-center justify-center gap-8 w-full max-w-2xl py-6"
+            className="flex flex-1 flex-col items-center justify-center gap-8 w-full max-w-3xl py-6"
           >
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 sm:gap-6 w-full">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-5 w-full">
               {Object.values(TEMPLATES).map((t) => {
                 const selected = t.id === templateId;
                 return (
                   <button
                     key={t.id}
                     onClick={() => setTemplateId(t.id)}
-                    className={`flex flex-col items-center justify-center gap-5 p-8 sm:p-10 rounded-3xl border-2 transition-all text-center min-h-[240px] sm:min-h-[280px] ${
+                    className={`flex flex-col items-center justify-center gap-4 p-6 sm:p-8 rounded-3xl border-2 transition-all text-center min-h-[220px] sm:min-h-[260px] ${
                       selected
                         ? "border-feu-gold bg-feu-greenDark shadow-gold scale-[1.02]"
                         : "border-feu-green/20 bg-white hover:border-feu-gold/60"
                     }`}
                   >
-                    <div className="h-[128px] flex items-center justify-center">
+                    <div className="h-[112px] flex items-center justify-center">
                       <LayoutGlyph template={t} selected={selected} />
                     </div>
                     <div className="space-y-1.5">
@@ -211,16 +196,45 @@ export default function Photobooth() {
                       >
                         {t.description}
                       </p>
+                      <p
+                        className={`font-mono text-[10px] tracking-wider uppercase ${
+                          selected ? "text-feu-gold/70" : "text-feu-green/50"
+                        }`}
+                      >
+                        {t.shotCount} shots
+                      </p>
                     </div>
                   </button>
                 );
               })}
             </div>
             <button
-              onClick={() => setStage("camera")}
+              onClick={() => setStage("border")}
               className="px-10 py-4 rounded-full bg-feu-gold text-feu-greenDark font-display font-bold text-lg shadow-gold hover:brightness-105 active:scale-95 transition-all"
             >
               Continue
+            </button>
+          </motion.div>
+        )}
+
+        {stage === "border" && (
+          <motion.div
+            key="border"
+            initial={{ opacity: 0, y: 16 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -16 }}
+            className="flex flex-1 flex-col items-center justify-center gap-6 sm:gap-8 w-full max-w-4xl py-4 sm:py-6"
+          >
+            <p className="text-center font-body text-sm sm:text-base text-feu-ink/60 max-w-lg px-4">
+              Browse the full strip design below — header, photo frames, and footer.
+              Take your time, then continue when you&apos;re happy with your pick.
+            </p>
+            <BorderCarousel selectedId={borderId} onSelect={setBorderId} />
+            <button
+              onClick={() => setStage("camera")}
+              className="px-10 py-4 rounded-full bg-feu-gold text-feu-greenDark font-display font-bold text-lg shadow-gold hover:brightness-105 active:scale-95 transition-all"
+            >
+              Continue to Camera
             </button>
           </motion.div>
         )}
@@ -234,26 +248,25 @@ export default function Photobooth() {
             transition={{ duration: 0.2 }}
             className="flex flex-1 flex-col items-center justify-center gap-4 w-full"
           >
-            {/* compact preview — shown above the camera only on narrow screens */}
-            <div className={`lg:hidden w-full ${template.id === "landscape" ? "max-w-xl" : "max-w-sm"}`}>
-              <TemplatePreview template={template} shots={shots} variant="compact" />
+            <div className={`lg:hidden w-full ${wide ? "max-w-xl" : "max-w-sm"}`}>
+              <TemplatePreview template={template} shots={shots} border={border} variant="compact" />
             </div>
 
-            {/* group sizes to its content so camera + strip sit together in the center */}
             <div className="flex flex-col lg:flex-row gap-8 lg:gap-10 items-center justify-center max-w-full">
-              {/* explicit width on the wrapper — button always matches the camera */}
               <div
                 className="flex flex-col items-stretch gap-3 max-w-full"
                 style={{
-                  width:
-                    template.id === "landscape"
-                      ? `min(820px, 56vw, calc((100vh - 11rem) * ${currentRect.w / currentRect.h}))`
-                      : `min(680px, 48vw, calc((100vh - 11rem) * ${currentRect.w / currentRect.h}))`,
+                  width: wide
+                    ? `min(820px, 56vw, calc((100vh - 11rem) * ${currentRect.w / currentRect.h}))`
+                    : `min(680px, 48vw, calc((100vh - 11rem) * ${currentRect.w / currentRect.h}))`,
                 }}
               >
                 <div
-                  className="relative w-full rounded-3xl overflow-hidden shadow-panel border-4 border-feu-gold/60 bg-feu-greenDark"
-                  style={{ aspectRatio: currentRect.w / currentRect.h }}
+                  className="relative w-full rounded-3xl overflow-hidden shadow-panel border-4 bg-feu-greenDark"
+                  style={{
+                    aspectRatio: currentRect.w / currentRect.h,
+                    borderColor: `${border.accent}99`,
+                  }}
                 >
                   <CameraView ref={videoRef} active />
                   <Countdown value={countdownValue} />
@@ -279,11 +292,10 @@ export default function Photobooth() {
                 </button>
               </div>
 
-              {/* strip sits beside the camera as one centered pair; height-capped for portrait */}
               <div
                 className="hidden lg:block shrink-0"
                 style={
-                  template.id === "landscape"
+                  wide
                     ? { width: "min(700px, 44vw)" }
                     : {
                         width: "min(260px, calc((100vh - 7rem) * 0.48))",
@@ -291,7 +303,12 @@ export default function Photobooth() {
                       }
                 }
               >
-                <TemplatePreview template={template} shots={shots} variant="sidebar" />
+                <TemplatePreview
+                  template={template}
+                  shots={shots}
+                  border={border}
+                  variant="sidebar"
+                />
               </div>
             </div>
           </motion.div>
@@ -299,10 +316,28 @@ export default function Photobooth() {
 
         {stage === "review" && finalStrip && (
           <motion.div key="review" className="w-full flex-1 flex items-center justify-center">
-            <ResultScreen stripUrl={finalStrip} onNewSession={newSession} />
+            <ResultScreen
+              stripUrl={finalStrip}
+              shots={shots}
+              template={template}
+              border={border}
+              footerText={footerText}
+              onFooterChange={setFooterText}
+              onStripUpdate={setFinalStrip}
+              onNewSession={newSession}
+            />
           </motion.div>
         )}
       </AnimatePresence>
+        </>
+      )}
+
+      <p
+        className="fixed bottom-3 left-0 right-0 text-center font-mono text-[10px] tracking-widest text-feu-greenDark/25 pointer-events-none select-none"
+        aria-hidden
+      >
+        Developed by Strix - Zy
+      </p>
     </main>
   );
 }
