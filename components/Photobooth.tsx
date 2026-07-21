@@ -1,24 +1,95 @@
 "use client";
 
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import CameraView from "./CameraView";
 import Countdown from "./Countdown";
+import CountdownChips from "./CountdownChips";
 import TemplatePreview from "./TemplatePreview";
 import LayoutGlyph from "./LayoutGlyph";
-import BorderCarousel from "./BorderCarousel";
 import StartWelcomeCard from "./StartWelcomeCard";
+import ShotConfirm from "./ShotConfirm";
 import ResultScreen from "./ResultScreen";
+import IdleShowcase from "./IdleShowcase";
 import { Stage, TemplateId, TEMPLATES, getCellRects, isWideTemplate } from "@/lib/types";
-import { BorderStyleId, BORDER_STYLES, DEFAULT_FOOTER } from "@/lib/borders";
+import { BorderStyleId, BORDER_STYLES, BORDER_STYLE_LIST, DEFAULT_FOOTER } from "@/lib/borders";
+import { FilterId, FILTER_LIST, FILTERS, DEFAULT_FILTER } from "@/lib/filters";
+import {
+  CountdownPresetId,
+  COUNTDOWN_PRESETS,
+  DEFAULT_COUNTDOWN,
+} from "@/lib/countdown";
 import { captureShot, composeStrip } from "@/lib/capture";
+import {
+  unlockAudio,
+  setMuted,
+  playCountdownTick,
+  playSmileCue,
+  playShutter,
+  playSuccess,
+  playClick,
+  playConfirm,
+  playNav,
+} from "@/lib/sounds";
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+const IDLE_MS = 60_000;
+
+function cycleIndex(length: number, current: number, dir: 1 | -1): number {
+  return (current + dir + length) % length;
+}
+
+function FilterNavButton({
+  dir,
+  onClick,
+  disabled,
+}: {
+  dir: "prev" | "next";
+  onClick: () => void;
+  disabled?: boolean;
+}) {
+  return (
+    <button
+      type="button"
+      aria-label={dir === "prev" ? "Previous filter" : "Next filter"}
+      disabled={disabled}
+      onClick={(e) => {
+        e.stopPropagation();
+        playNav();
+        onClick();
+      }}
+      className="pointer-events-auto w-10 h-10 sm:w-11 sm:h-11 rounded-full flex items-center justify-center bg-feu-greenDark/75 text-feu-gold border border-feu-gold/40 backdrop-blur-sm hover:bg-feu-greenDark/90 active:scale-95 transition-all disabled:opacity-40"
+    >
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden>
+        {dir === "prev" ? (
+          <path
+            d="M15 6l-6 6 6 6"
+            stroke="currentColor"
+            strokeWidth="2.4"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+        ) : (
+          <path
+            d="M9 6l6 6-6 6"
+            stroke="currentColor"
+            strokeWidth="2.4"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+        )}
+      </svg>
+    </button>
+  );
+}
 
 function BackButton({ onClick, label }: { onClick: () => void; label: string }) {
   return (
     <button
-      onClick={onClick}
+      onClick={() => {
+        playClick();
+        onClick();
+      }}
       className="flex items-center gap-1.5 text-feu-greenDark/70 hover:text-feu-greenDark font-body text-sm font-medium transition-colors"
     >
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
@@ -33,81 +104,281 @@ export default function Photobooth() {
   const [stage, setStage] = useState<Stage>("start");
   const [templateId, setTemplateId] = useState<TemplateId>("portrait");
   const [borderId, setBorderId] = useState<BorderStyleId>("feu");
+  const [filterId, setFilterId] = useState<FilterId>(DEFAULT_FILTER);
+  const [countdownPreset, setCountdownPreset] =
+    useState<CountdownPresetId>(DEFAULT_COUNTDOWN);
   const [footerText, setFooterText] = useState(DEFAULT_FOOTER);
   const [shots, setShots] = useState<string[]>([]);
+  const [retakeIndex, setRetakeIndex] = useState<number | null>(null);
   const [countdownValue, setCountdownValue] = useState<number | "smile" | null>(null);
   const [flash, setFlash] = useState(false);
   const [finalStrip, setFinalStrip] = useState<string | null>(null);
   const [capturing, setCapturing] = useState(false);
+  const [composing, setComposing] = useState(false);
+  const [soundMuted, setSoundMuted] = useState(false);
 
   const videoRef = useRef<HTMLVideoElement>(null);
+  const capturingRef = useRef(false);
+  const stageRef = useRef<Stage>(stage);
+
   const template = TEMPLATES[templateId];
   const border = BORDER_STYLES[borderId];
   const rects = getCellRects(template);
-  const currentRect = rects[Math.min(shots.length, rects.length - 1)];
+  const previewIndex =
+    retakeIndex !== null
+      ? retakeIndex
+      : Math.min(shots.length, rects.length - 1);
+  const currentRect = rects[previewIndex];
   const wide = isWideTemplate(template);
+  const pace = COUNTDOWN_PRESETS[countdownPreset];
+
+  useEffect(() => {
+    capturingRef.current = capturing;
+  }, [capturing]);
+
+  useEffect(() => {
+    stageRef.current = stage;
+  }, [stage]);
+
+  // Keep viewport at the top when switching stages (avoids landing mid-page)
+  useEffect(() => {
+    if (document.activeElement instanceof HTMLElement) {
+      document.activeElement.blur();
+    }
+    window.scrollTo(0, 0);
+    document.documentElement.scrollTop = 0;
+    document.body.scrollTop = 0;
+  }, [stage]);
+
+  function resetSessionFields() {
+    setShots([]);
+    setFinalStrip(null);
+    setCapturing(false);
+    setComposing(false);
+    setCountdownValue(null);
+    setFlash(false);
+    setRetakeIndex(null);
+    setFooterText(DEFAULT_FOOTER);
+    setBorderId("feu");
+    setFilterId(DEFAULT_FILTER);
+    setCountdownPreset(DEFAULT_COUNTDOWN);
+  }
+
+  const goIdle = useCallback(() => {
+    if (capturingRef.current) return;
+    resetSessionFields();
+    setStage("idle");
+  }, []);
+
+  // 60s idle → showcase (paused while capturing or already idle)
+  useEffect(() => {
+    if (stage === "idle") return;
+
+    let timer: ReturnType<typeof setTimeout>;
+
+    const bump = () => {
+      clearTimeout(timer);
+      if (capturingRef.current || stageRef.current === "idle") return;
+      timer = setTimeout(goIdle, IDLE_MS);
+    };
+
+    const events: (keyof WindowEventMap)[] = [
+      "pointerdown",
+      "pointermove",
+      "keydown",
+      "touchstart",
+      "scroll",
+    ];
+    events.forEach((e) => window.addEventListener(e, bump, { passive: true }));
+    bump();
+
+    return () => {
+      clearTimeout(timer);
+      events.forEach((e) => window.removeEventListener(e, bump));
+    };
+  }, [stage, goIdle, capturing]);
 
   const runSession = useCallback(async () => {
     if (capturing || !videoRef.current) return;
+    unlockAudio();
     setCapturing(true);
     const collected: string[] = [];
+    const { beats, beatMs, smileMs, betweenShotsMs } = pace;
 
-    for (let i = 0; i < template.shotCount; i++) {
-      for (const n of [3, 2, 1]) {
-        setCountdownValue(n);
-        await sleep(800);
+    try {
+      for (let i = 0; i < template.shotCount; i++) {
+        for (const n of beats) {
+          setCountdownValue(n);
+          playCountdownTick(n);
+          await sleep(beatMs);
+        }
+        setCountdownValue("smile");
+        playSmileCue();
+        await sleep(smileMs);
+        setCountdownValue(null);
+
+        if (!videoRef.current) break;
+        setFlash(true);
+        playShutter();
+        const dataUrl = await captureShot(videoRef.current, template, i);
+        await sleep(180);
+        setFlash(false);
+
+        collected.push(dataUrl);
+        setShots([...collected]);
+
+        if (i < template.shotCount - 1) await sleep(betweenShotsMs);
       }
-      setCountdownValue("smile");
-      await sleep(400);
-      setCountdownValue(null);
 
-      setFlash(true);
-      const dataUrl = await captureShot(videoRef.current, template, i);
-      await sleep(180);
-      setFlash(false);
-
-      collected.push(dataUrl);
-      setShots([...collected]);
-
-      if (i < template.shotCount - 1) await sleep(500);
-    }
-
-    const strip = await composeStrip(collected, template, { border, footerText });
-    setFinalStrip(strip);
-    setStage("review");
-    setCapturing(false);
-  }, [capturing, template, border, footerText]);
-
-  function goBack() {
-    if (stage === "template") {
-      setStage("start");
-    } else if (stage === "border") {
-      setStage("template");
-    } else if (stage === "camera") {
-      setStage("border");
-      setShots([]);
+      if (collected.length === template.shotCount) {
+        setRetakeIndex(null);
+        playSuccess();
+        setStage("confirm");
+      }
+    } finally {
       setCapturing(false);
       setCountdownValue(null);
       setFlash(false);
     }
+  }, [capturing, template, pace]);
+
+  const runRetakeShot = useCallback(async () => {
+    if (capturing || !videoRef.current || retakeIndex === null) return;
+    unlockAudio();
+    setCapturing(true);
+    const index = retakeIndex;
+    const { beats, beatMs, smileMs } = pace;
+
+    try {
+      for (const n of beats) {
+        setCountdownValue(n);
+        playCountdownTick(n);
+        await sleep(beatMs);
+      }
+      setCountdownValue("smile");
+      playSmileCue();
+      await sleep(smileMs);
+      setCountdownValue(null);
+
+      if (!videoRef.current) return;
+      setFlash(true);
+      playShutter();
+      const dataUrl = await captureShot(videoRef.current, template, index);
+      await sleep(180);
+      setFlash(false);
+
+      setShots((prev) => {
+        const next = [...prev];
+        next[index] = dataUrl;
+        return next;
+      });
+      setRetakeIndex(null);
+      playSuccess();
+      setStage("confirm");
+    } finally {
+      setCapturing(false);
+      setCountdownValue(null);
+      setFlash(false);
+    }
+  }, [capturing, template, retakeIndex, pace]);
+
+  async function handleKeepAll() {
+    if (composing) return;
+    setComposing(true);
+    try {
+      const strip = await composeStrip(shots, template, {
+        border,
+        footerText,
+        filterId,
+      });
+      setFinalStrip(strip);
+      playSuccess();
+      setStage("review");
+    } finally {
+      setComposing(false);
+    }
+  }
+
+  function toggleMute() {
+    const next = !soundMuted;
+    setSoundMuted(next);
+    setMuted(next);
+    if (!next) {
+      unlockAudio();
+      playClick();
+    }
+  }
+
+  function handleRetake(index: number) {
+    setRetakeIndex(index);
+    setStage("camera");
+  }
+
+  function goBack() {
+    if (stage === "template") {
+      setStage("start");
+    } else if (stage === "camera") {
+      if (retakeIndex !== null) {
+        setRetakeIndex(null);
+        setStage("confirm");
+        return;
+      }
+      setStage("template");
+      setShots([]);
+      setCapturing(false);
+      setCountdownValue(null);
+      setFlash(false);
+    } else if (stage === "confirm") {
+      // Keep shots — guests may only want to tweak border/filter on camera
+      setStage("camera");
+      setCapturing(false);
+      setCountdownValue(null);
+      setFlash(false);
+      setRetakeIndex(null);
+    }
   }
 
   function newSession() {
+    resetSessionFields();
     setStage("start");
-    setShots([]);
-    setFinalStrip(null);
-    setCapturing(false);
-    setCountdownValue(null);
-    setFooterText(DEFAULT_FOOTER);
-    setBorderId("feu");
+  }
+
+  function dismissIdle() {
+    resetSessionFields();
+    setStage("start");
+  }
+
+  function stepBorder(dir: 1 | -1) {
+    if (capturing) return;
+    const idx = BORDER_STYLE_LIST.findIndex((b) => b.id === borderId);
+    const next = cycleIndex(BORDER_STYLE_LIST.length, Math.max(0, idx), dir);
+    setBorderId(BORDER_STYLE_LIST[next].id);
+  }
+
+  function stepFilter(dir: 1 | -1) {
+    if (capturing) return;
+    const idx = FILTER_LIST.findIndex((f) => f.id === filterId);
+    const next = cycleIndex(FILTER_LIST.length, Math.max(0, idx), dir);
+    setFilterId(FILTER_LIST[next].id);
   }
 
   const stageTitle =
     stage === "template"
       ? "Choose your strip"
-      : stage === "border"
-        ? "Choose your border"
-        : template.label;
+      : stage === "confirm"
+        ? "Confirm your shots"
+        : retakeIndex !== null
+          ? `Retake shot ${retakeIndex + 1}`
+          : template.label;
+
+  const filterLabel = FILTERS[filterId].label;
+  const filterIndex = FILTER_LIST.findIndex((f) => f.id === filterId) + 1;
+  const shotsComplete =
+    shots.length === template.shotCount && retakeIndex === null;
+
+  if (stage === "idle") {
+    return <IdleShowcase onDismiss={dismissIdle} />;
+  }
 
   return (
     <main
@@ -116,7 +387,7 @@ export default function Photobooth() {
       }`}
     >
       {stage === "start" ? (
-        <motion.div className="flex flex-col items-center justify-center w-full max-w-md gap-6 sm:gap-8 text-center min-h-[calc(100dvh-3rem)]">
+        <motion.div className="flex flex-col items-center justify-center w-full max-w-md gap-6 sm:gap-8 text-center min-h-[calc(100dvh-3rem)] pb-12">
           <header className="shrink-0">
             <p className="font-mono text-xs tracking-[0.3em] text-feu-green/70 uppercase mb-1">
               Information Technology Department
@@ -136,8 +407,12 @@ export default function Photobooth() {
             >
               <StartWelcomeCard />
               <button
-                onClick={() => setStage("template")}
-                className="px-8 py-4 rounded-full bg-feu-gold text-feu-greenDark font-display font-bold text-lg shadow-gold hover:brightness-105 active:scale-95 transition-all"
+                onClick={() => {
+                  unlockAudio();
+                  playConfirm();
+                  setStage("template");
+                }}
+                className="px-7 py-3 rounded-full bg-feu-gold text-feu-greenDark font-display font-bold text-base shadow-gold hover:brightness-105 active:scale-95 transition-all"
               >
                 Start Photobooth
               </button>
@@ -146,197 +421,289 @@ export default function Photobooth() {
         </motion.div>
       ) : (
         <>
-      {(stage === "template" || stage === "border" || stage === "camera") && (
-          <motion.div className="w-full max-w-5xl flex items-center justify-between shrink-0">
-            <BackButton onClick={goBack} label="Back" />
-            <p className="font-display font-bold text-base sm:text-lg text-feu-greenDark">
-              {stageTitle}
-            </p>
-            <span className="w-12" />
-          </motion.div>
+          {(stage === "template" || stage === "camera" || stage === "confirm") && (
+            <motion.div className="w-full max-w-5xl flex items-center justify-between shrink-0">
+              <BackButton onClick={goBack} label="Back" />
+              <p className="font-display font-bold text-base sm:text-lg text-feu-greenDark">
+                {stageTitle}
+              </p>
+              <span className="w-12" />
+            </motion.div>
           )}
 
-      <AnimatePresence mode="wait">
-        {stage === "template" && (
-          <motion.div
-            key="template"
-            initial={{ opacity: 0, y: 16 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -16 }}
-            className="flex flex-1 flex-col items-center justify-center gap-8 w-full max-w-3xl py-6"
-          >
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-5 w-full">
-              {Object.values(TEMPLATES).map((t) => {
-                const selected = t.id === templateId;
-                return (
-                  <button
-                    key={t.id}
-                    onClick={() => setTemplateId(t.id)}
-                    className={`flex flex-col items-center justify-center gap-4 p-6 sm:p-8 rounded-3xl border-2 transition-all text-center min-h-[220px] sm:min-h-[260px] ${
-                      selected
-                        ? "border-feu-gold bg-feu-greenDark shadow-gold scale-[1.02]"
-                        : "border-feu-green/20 bg-white hover:border-feu-gold/60"
-                    }`}
-                  >
-                    <div className="h-[112px] flex items-center justify-center">
-                      <LayoutGlyph template={t} selected={selected} />
-                    </div>
-                    <div className="space-y-1.5">
-                      <p
-                        className={`font-display font-bold text-lg sm:text-xl ${
-                          selected ? "text-feu-cream" : "text-feu-greenDark"
-                        }`}
-                      >
-                        {t.label}
-                      </p>
-                      <p
-                        className={`font-body text-sm leading-snug max-w-[16rem] mx-auto ${
-                          selected ? "text-feu-cream/70" : "text-feu-ink/60"
-                        }`}
-                      >
-                        {t.description}
-                      </p>
-                      <p
-                        className={`font-mono text-[10px] tracking-wider uppercase ${
-                          selected ? "text-feu-gold/70" : "text-feu-green/50"
-                        }`}
-                      >
-                        {t.shotCount} shots
-                      </p>
-                    </div>
-                  </button>
-                );
-              })}
-            </div>
-            <button
-              onClick={() => setStage("border")}
-              className="px-10 py-4 rounded-full bg-feu-gold text-feu-greenDark font-display font-bold text-lg shadow-gold hover:brightness-105 active:scale-95 transition-all"
-            >
-              Continue
-            </button>
-          </motion.div>
-        )}
-
-        {stage === "border" && (
-          <motion.div
-            key="border"
-            initial={{ opacity: 0, y: 16 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -16 }}
-            className="flex flex-1 flex-col items-center justify-center gap-6 sm:gap-8 w-full max-w-4xl py-4 sm:py-6"
-          >
-            <p className="text-center font-body text-sm sm:text-base text-feu-ink/60 max-w-lg px-4">
-              Browse the full strip design below — header, photo frames, and footer.
-              Take your time, then continue when you&apos;re happy with your pick.
-            </p>
-            <BorderCarousel selectedId={borderId} onSelect={setBorderId} />
-            <button
-              onClick={() => setStage("camera")}
-              className="px-10 py-4 rounded-full bg-feu-gold text-feu-greenDark font-display font-bold text-lg shadow-gold hover:brightness-105 active:scale-95 transition-all"
-            >
-              Continue to Camera
-            </button>
-          </motion.div>
-        )}
-
-        {stage === "camera" && (
-          <motion.div
-            key="camera"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.2 }}
-            className="flex flex-1 flex-col items-center justify-center gap-4 w-full"
-          >
-            <div className={`lg:hidden w-full ${wide ? "max-w-xl" : "max-w-sm"}`}>
-              <TemplatePreview template={template} shots={shots} border={border} variant="compact" />
-            </div>
-
-            <div className="flex flex-col lg:flex-row gap-8 lg:gap-10 items-center justify-center max-w-full">
-              <div
-                className="flex flex-col items-stretch gap-3 max-w-full"
-                style={{
-                  width: wide
-                    ? `min(820px, 56vw, calc((100vh - 11rem) * ${currentRect.w / currentRect.h}))`
-                    : `min(680px, 48vw, calc((100vh - 11rem) * ${currentRect.w / currentRect.h}))`,
-                }}
+          <AnimatePresence mode="wait">
+            {stage === "template" && (
+              <motion.div
+                key="template"
+                initial={{ opacity: 0, y: 16 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -16 }}
+                className="flex flex-1 flex-col items-center justify-center gap-8 w-full max-w-3xl py-6"
               >
-                <div
-                  className="relative w-full rounded-3xl overflow-hidden shadow-panel border-4 bg-feu-greenDark"
-                  style={{
-                    aspectRatio: currentRect.w / currentRect.h,
-                    borderColor: `${border.accent}99`,
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-5 w-full">
+                  {Object.values(TEMPLATES).map((t) => {
+                    const selected = t.id === templateId;
+                    return (
+                      <button
+                        key={t.id}
+                        onClick={() => {
+                          playClick();
+                          setTemplateId(t.id);
+                        }}
+                        className={`flex flex-col items-center justify-center gap-4 p-6 sm:p-8 rounded-3xl border-2 transition-all text-center min-h-[220px] sm:min-h-[260px] ${
+                          selected
+                            ? "border-feu-gold bg-feu-greenDark shadow-gold scale-[1.02]"
+                            : "border-feu-green/20 bg-white hover:border-feu-gold/60"
+                        }`}
+                      >
+                        <div className="h-[112px] flex items-center justify-center">
+                          <LayoutGlyph template={t} selected={selected} />
+                        </div>
+                        <div className="space-y-1.5">
+                          <p
+                            className={`font-display font-bold text-lg sm:text-xl ${
+                              selected ? "text-feu-cream" : "text-feu-greenDark"
+                            }`}
+                          >
+                            {t.label}
+                          </p>
+                          <p
+                            className={`font-body text-sm leading-snug max-w-[16rem] mx-auto ${
+                              selected ? "text-feu-cream/70" : "text-feu-ink/60"
+                            }`}
+                          >
+                            {t.description}
+                          </p>
+                          <p
+                            className={`font-mono text-[10px] tracking-wider uppercase ${
+                              selected ? "text-feu-gold/70" : "text-feu-green/50"
+                            }`}
+                          >
+                            {t.shotCount} shots
+                          </p>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+                <button
+                  onClick={() => {
+                    playConfirm();
+                    setStage("camera");
                   }}
+                  className="px-10 py-4 rounded-full bg-feu-gold text-feu-greenDark font-display font-bold text-lg shadow-gold hover:brightness-105 active:scale-95 transition-all"
                 >
-                  <CameraView ref={videoRef} active />
-                  <Countdown value={countdownValue} />
-                  {flash && (
-                    <div className="absolute inset-0 bg-white animate-flash pointer-events-none" />
-                  )}
-                  <div className="absolute top-3 left-3 right-3 flex justify-between pointer-events-none">
-                    <span className="px-2.5 py-1 rounded-full bg-feu-greenDark/70 text-feu-gold text-[10px] font-mono tracking-widest">
-                      ● REC
-                    </span>
-                    <span className="px-2.5 py-1 rounded-full bg-feu-greenDark/70 text-feu-gold text-[10px] font-mono tracking-widest">
-                      {shots.length}/{template.shotCount}
-                    </span>
-                  </div>
+                  Continue to Camera
+                </button>
+              </motion.div>
+            )}
+
+            {stage === "camera" && (
+              <motion.div
+                key="camera"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.2 }}
+                className="flex flex-1 flex-col items-center justify-center gap-4 w-full"
+              >
+                <div className={`lg:hidden w-full ${wide ? "max-w-xl" : "max-w-sm"}`}>
+                  <TemplatePreview
+                    template={template}
+                    shots={shots}
+                    border={border}
+                    filterId={filterId}
+                    variant="compact"
+                    onBorderPrev={() => stepBorder(-1)}
+                    onBorderNext={() => stepBorder(1)}
+                    borderNavDisabled={capturing}
+                  />
                 </div>
 
-                <button
-                  onClick={runSession}
-                  disabled={capturing}
-                  className="w-full py-2.5 sm:py-3 rounded-full bg-feu-gold text-feu-greenDark font-display font-bold text-base shadow-gold hover:brightness-105 active:scale-95 transition-all disabled:opacity-60 disabled:active:scale-100"
-                >
-                  {capturing ? "Capturing…" : "Start Capturing"}
-                </button>
-              </div>
+                <div className="flex flex-col lg:flex-row gap-8 lg:gap-10 items-center justify-center max-w-full">
+                  <div
+                    className="flex flex-col items-stretch gap-3 max-w-full"
+                    style={{
+                      width: wide
+                        ? `min(820px, 56vw, calc((100vh - 11rem) * ${currentRect.w / currentRect.h}))`
+                        : `min(680px, 48vw, calc((100vh - 11rem) * ${currentRect.w / currentRect.h}))`,
+                    }}
+                  >
+                    <div
+                      className="relative w-full rounded-3xl overflow-hidden shadow-panel border-4 bg-feu-greenDark"
+                      style={{
+                        aspectRatio: currentRect.w / currentRect.h,
+                        borderColor: `${border.accent}99`,
+                      }}
+                    >
+                      <CameraView ref={videoRef} active filterId={filterId} />
+                      <Countdown value={countdownValue} />
+                      {flash && (
+                        <div className="absolute inset-0 bg-white animate-flash pointer-events-none" />
+                      )}
+                      <div className="absolute top-3 left-3 right-3 flex justify-between pointer-events-none z-10">
+                        <span className="px-2.5 py-1 rounded-full bg-feu-greenDark/70 text-feu-gold text-[10px] font-mono tracking-widest">
+                          ● REC
+                        </span>
+                        <span className="px-2.5 py-1 rounded-full bg-feu-greenDark/70 text-feu-gold text-[10px] font-mono tracking-widest">
+                          {retakeIndex !== null
+                            ? `Retake ${retakeIndex + 1}`
+                            : `${shots.length}/${template.shotCount}`}
+                        </span>
+                      </div>
 
-              <div
-                className="hidden lg:block shrink-0"
-                style={
-                  wide
-                    ? { width: "min(700px, 44vw)" }
-                    : {
-                        width: "min(260px, calc((100vh - 7rem) * 0.48))",
-                        maxHeight: "calc(100vh - 6rem)",
-                      }
-                }
+                      {/* Filter prev / next + label inside capture window */}
+                      <div className="absolute inset-y-0 left-2 flex items-center z-10">
+                        <FilterNavButton
+                          dir="prev"
+                          disabled={capturing}
+                          onClick={() => stepFilter(-1)}
+                        />
+                      </div>
+                      <div className="absolute inset-y-0 right-2 flex items-center z-10">
+                        <FilterNavButton
+                          dir="next"
+                          disabled={capturing}
+                          onClick={() => stepFilter(1)}
+                        />
+                      </div>
+                      <div className="absolute bottom-3 left-1/2 -translate-x-1/2 z-10 pointer-events-none">
+                        <span className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-feu-greenDark/80 text-feu-cream border border-feu-gold/35 backdrop-blur-sm">
+                          <span className="font-mono text-[9px] tracking-widest text-feu-gold/80 uppercase">
+                            Filter
+                          </span>
+                          <span className="font-display font-bold text-sm text-feu-gold">
+                            {filterLabel}
+                          </span>
+                          <span className="font-mono text-[10px] text-feu-cream/50">
+                            {filterIndex}/{FILTER_LIST.length}
+                          </span>
+                        </span>
+                      </div>
+                    </div>
+
+                    <CountdownChips
+                      selectedId={countdownPreset}
+                      onSelect={setCountdownPreset}
+                      disabled={capturing}
+                    />
+
+                    <button
+                      onClick={() => {
+                        playConfirm();
+                        if (retakeIndex !== null) runRetakeShot();
+                        else if (shotsComplete) setStage("confirm");
+                        else runSession();
+                      }}
+                      disabled={capturing}
+                      className="w-full py-2.5 sm:py-3 rounded-full bg-feu-gold text-feu-greenDark font-display font-bold text-base shadow-gold hover:brightness-105 active:scale-95 transition-all disabled:opacity-60 disabled:active:scale-100"
+                    >
+                      {capturing
+                        ? "Capturing…"
+                        : retakeIndex !== null
+                          ? `Retake shot ${retakeIndex + 1}`
+                          : shotsComplete
+                            ? "Review shots"
+                            : "Start Capturing"}
+                    </button>
+                  </div>
+
+                  <div
+                    className="hidden lg:block shrink-0"
+                    style={
+                      wide
+                        ? { width: "min(700px, 44vw)" }
+                        : {
+                            width: "min(280px, calc((100vh - 7rem) * 0.48))",
+                            maxHeight: "calc(100vh - 6rem)",
+                          }
+                    }
+                  >
+                    <TemplatePreview
+                      template={template}
+                      shots={shots}
+                      border={border}
+                      filterId={filterId}
+                      variant="sidebar"
+                      onBorderPrev={() => stepBorder(-1)}
+                      onBorderNext={() => stepBorder(1)}
+                      borderNavDisabled={capturing}
+                    />
+                  </div>
+                </div>
+              </motion.div>
+            )}
+
+            {stage === "confirm" && (
+              <motion.div
+                key="confirm"
+                initial={{ opacity: 0, y: 16 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -16 }}
+                className="w-full flex-1 flex items-center justify-center"
               >
-                <TemplatePreview
+                <ShotConfirm
                   template={template}
                   shots={shots}
                   border={border}
-                  variant="sidebar"
+                  filterId={filterId}
+                  onRetake={handleRetake}
+                  onKeepAll={handleKeepAll}
+                  composing={composing}
                 />
-              </div>
-            </div>
-          </motion.div>
-        )}
+              </motion.div>
+            )}
 
-        {stage === "review" && finalStrip && (
-          <motion.div key="review" className="w-full flex-1 flex items-center justify-center">
-            <ResultScreen
-              stripUrl={finalStrip}
-              shots={shots}
-              template={template}
-              border={border}
-              footerText={footerText}
-              onFooterChange={setFooterText}
-              onStripUpdate={setFinalStrip}
-              onNewSession={newSession}
-            />
-          </motion.div>
-        )}
-      </AnimatePresence>
+            {stage === "review" && finalStrip && (
+              <motion.div
+                key="review"
+                className="w-full flex-1 flex items-center justify-center"
+              >
+                <ResultScreen
+                  stripUrl={finalStrip}
+                  shots={shots}
+                  template={template}
+                  border={border}
+                  footerText={footerText}
+                  filterId={filterId}
+                  onFooterChange={setFooterText}
+                  onStripUpdate={setFinalStrip}
+                  onNewSession={newSession}
+                />
+              </motion.div>
+            )}
+          </AnimatePresence>
         </>
       )}
 
+      <button
+        type="button"
+        onClick={toggleMute}
+        aria-label={soundMuted ? "Unmute sound effects" : "Mute sound effects"}
+        title={soundMuted ? "Unmute" : "Mute"}
+        className="fixed bottom-2 left-4 sm:left-6 z-40 flex items-center gap-1.5 px-2.5 py-1.5 rounded-full bg-feu-greenDark/80 text-feu-cream/90 border border-feu-gold/30 hover:bg-feu-greenDark transition-colors"
+      >
+        {soundMuted ? (
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden>
+            <path d="M11 5L6 9H3v6h3l5 4V5z" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" />
+            <path d="M23 9l-6 6M17 9l6 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+          </svg>
+        ) : (
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden>
+            <path d="M11 5L6 9H3v6h3l5 4V5z" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" />
+            <path d="M15.5 8.5a5 5 0 010 7M18.5 5.5a9 9 0 010 13" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+          </svg>
+        )}
+        <span className="font-mono text-[10px] tracking-wider uppercase hidden sm:inline">
+          {soundMuted ? "Muted" : "SFX"}
+        </span>
+      </button>
+
       <p
-        className="fixed bottom-3 left-0 right-0 text-center font-mono text-[10px] tracking-widest text-feu-greenDark/25 pointer-events-none select-none"
+        className="fixed bottom-2 right-4 sm:right-6 text-right font-mono text-[10px] tracking-widest text-feu-greenDark/25 pointer-events-none select-none"
         aria-hidden
       >
-        Developed by Strix - Zy
+        Developed by Strix
       </p>
     </main>
   );

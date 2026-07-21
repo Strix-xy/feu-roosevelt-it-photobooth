@@ -1,13 +1,15 @@
 "use client";
 
 import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from "react";
+import { FilterId, getFilterCss } from "@/lib/filters";
 
 interface Props {
   active: boolean;
+  filterId?: FilterId;
 }
 
 const CameraView = forwardRef<HTMLVideoElement, Props>(function CameraView(
-  { active },
+  { active, filterId = "none" },
   ref
 ) {
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -60,6 +62,7 @@ const CameraView = forwardRef<HTMLVideoElement, Props>(function CameraView(
       playsInline
       muted
       className="mirror w-full h-full object-cover"
+      style={{ filter: getFilterCss(filterId) }}
     />
   );
 });

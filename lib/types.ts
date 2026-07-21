@@ -180,4 +180,10 @@ export function getCellRects(t: TemplateConfig): CellRect[] {
   }));
 }
 
-export type Stage = "start" | "template" | "border" | "camera" | "review";
+export type Stage =
+  | "start"
+  | "template"
+  | "camera"
+  | "confirm"
+  | "review"
+  | "idle";

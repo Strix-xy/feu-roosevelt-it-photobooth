@@ -1,9 +1,11 @@
 import { TemplateConfig, getCellRects } from "./types";
 import { BorderDesign, BorderStyle, DEFAULT_FOOTER } from "./borders";
+import { FilterId, applyFilterToImage } from "./filters";
 
 export interface ComposeOptions {
   border?: BorderStyle;
   footerText?: string;
+  filterId?: FilterId;
 }
 
 function loadImage(src: string): Promise<HTMLImageElement> {
@@ -543,7 +545,7 @@ function drawCardDecorations(
 
 function drawFramedPhoto(
   ctx: CanvasRenderingContext2D,
-  img: HTMLImageElement,
+  img: CanvasImageSource,
   x: number,
   y: number,
   w: number,
@@ -574,7 +576,7 @@ function drawFramedPhoto(
 
 function drawPhotoFeuClassic(
   ctx: CanvasRenderingContext2D,
-  img: HTMLImageElement,
+  img: CanvasImageSource,
   x: number, y: number, w: number, h: number,
   border: BorderStyle
 ) {
@@ -616,7 +618,7 @@ function drawPhotoFeuClassic(
 
 function drawPhotoRoyalCrest(
   ctx: CanvasRenderingContext2D,
-  img: HTMLImageElement,
+  img: CanvasImageSource,
   x: number, y: number, w: number, h: number,
   border: BorderStyle
 ) {
@@ -646,7 +648,7 @@ function drawPhotoRoyalCrest(
 
 function drawPhotoCrimsonOrnate(
   ctx: CanvasRenderingContext2D,
-  img: HTMLImageElement,
+  img: CanvasImageSource,
   x: number, y: number, w: number, h: number,
   border: BorderStyle
 ) {
@@ -679,7 +681,7 @@ function drawPhotoCrimsonOrnate(
 
 function drawPhotoBlushGlow(
   ctx: CanvasRenderingContext2D,
-  img: HTMLImageElement,
+  img: CanvasImageSource,
   x: number, y: number, w: number, h: number,
   border: BorderStyle
 ) {
@@ -723,7 +725,7 @@ function drawPhotoBlushGlow(
 
 function drawPhotoVioletClean(
   ctx: CanvasRenderingContext2D,
-  img: HTMLImageElement,
+  img: CanvasImageSource,
   x: number, y: number, w: number, h: number,
   border: BorderStyle
 ) {
@@ -755,7 +757,7 @@ function drawPhotoVioletClean(
 
 function drawPhotoOceanWave(
   ctx: CanvasRenderingContext2D,
-  img: HTMLImageElement,
+  img: CanvasImageSource,
   x: number, y: number, w: number, h: number,
   border: BorderStyle
 ) {
@@ -901,6 +903,7 @@ export async function composeStrip(
 ): Promise<string> {
   const border = options.border ?? BORDER_STYLES_FALLBACK;
   const footerText = options.footerText ?? DEFAULT_FOOTER;
+  const filterId = options.filterId ?? "none";
   const { totalW: w, totalH: h, headerH, footerH, pad } = template;
   const rects = getCellRects(template);
 
@@ -915,8 +918,9 @@ export async function composeStrip(
 
   for (let i = 0; i < shots.length; i++) {
     const img = await loadImage(shots[i]);
+    const filtered = applyFilterToImage(img, filterId);
     const r = rects[i];
-    drawFramedPhoto(ctx, img, r.x, r.y, r.w, r.h, border);
+    drawFramedPhoto(ctx, filtered, r.x, r.y, r.w, r.h, border);
   }
 
   drawCardFooter(ctx, w, h, footerH, pad, border, footerText);
