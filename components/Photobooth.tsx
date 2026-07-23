@@ -12,6 +12,8 @@ import ShotConfirm from "./ShotConfirm";
 import ResultScreen from "./ResultScreen";
 import IdleShowcase from "./IdleShowcase";
 import BrandLogos from "./BrandLogos";
+import HandGestureTip from "./HandGestureTip";
+import { useOpenHandTrigger, preloadHandGesture } from "@/hooks/useOpenHandTrigger";
 import { Stage, TemplateId, TEMPLATES, getCellRects, isWideTemplate } from "@/lib/types";
 import { BorderStyleId, BORDER_STYLES, BORDER_STYLE_LIST, DEFAULT_FOOTER } from "@/lib/borders";
 import { FilterId, FILTER_LIST, FILTERS, DEFAULT_FILTER } from "@/lib/filters";
@@ -141,6 +143,13 @@ export default function Photobooth() {
     stageRef.current = stage;
   }, [stage]);
 
+  // Warm gesture model early so camera stage is ready to detect
+  useEffect(() => {
+    if (stage === "template" || stage === "camera") {
+      preloadHandGesture();
+    }
+  }, [stage]);
+
   // Keep viewport at the top when switching stages (avoids landing mid-page)
   useEffect(() => {
     if (document.activeElement instanceof HTMLElement) {
@@ -200,7 +209,7 @@ export default function Photobooth() {
   }, [stage, goIdle, capturing]);
 
   const runSession = useCallback(async () => {
-    if (capturing || !videoRef.current) return;
+    if (capturingRef.current || !videoRef.current) return;
     unlockAudio();
     setCapturing(true);
     const collected: string[] = [];
@@ -241,10 +250,10 @@ export default function Photobooth() {
       setCountdownValue(null);
       setFlash(false);
     }
-  }, [capturing, template, pace]);
+  }, [template, pace]);
 
   const runRetakeShot = useCallback(async () => {
-    if (capturing || !videoRef.current || retakeIndex === null) return;
+    if (capturingRef.current || !videoRef.current || retakeIndex === null) return;
     unlockAudio();
     setCapturing(true);
     const index = retakeIndex;
@@ -281,7 +290,7 @@ export default function Photobooth() {
       setCountdownValue(null);
       setFlash(false);
     }
-  }, [capturing, template, retakeIndex, pace]);
+  }, [template, retakeIndex, pace]);
 
   async function handleKeepAll() {
     if (composing) return;
@@ -376,6 +385,27 @@ export default function Photobooth() {
   const filterIndex = FILTER_LIST.findIndex((f) => f.id === filterId) + 1;
   const shotsComplete =
     shots.length === template.shotCount && retakeIndex === null;
+
+  const gestureEnabled =
+    stage === "camera" &&
+    !capturing &&
+    (retakeIndex !== null || !shotsComplete);
+
+  const handleOpenHand = useCallback(() => {
+    unlockAudio();
+    playConfirm();
+    if (retakeIndex !== null) {
+      void runRetakeShot();
+    } else if (!shotsComplete) {
+      void runSession();
+    }
+  }, [retakeIndex, shotsComplete, runRetakeShot, runSession]);
+
+  useOpenHandTrigger({
+    videoRef,
+    enabled: gestureEnabled,
+    onOpenHand: handleOpenHand,
+  });
 
   if (stage === "idle") {
     return <IdleShowcase onDismiss={dismissIdle} />;
@@ -602,6 +632,8 @@ export default function Photobooth() {
                           </span>
                         </span>
                       </div>
+
+                      <HandGestureTip active={gestureEnabled} durationMs={6000} />
                     </div>
 
                     <CountdownChips

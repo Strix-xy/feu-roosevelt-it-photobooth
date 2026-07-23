@@ -9,9 +9,12 @@
     "lint": "next lint"
   },
   "dependencies": {
+    "@mediapipe/tasks-vision": "^0.10.35",
+    "@swc/helpers": "^0.5.23",
     "@vercel/blob": "^2.6.1",
     "clsx": "^2.1.1",
     "framer-motion": "^11.11.17",
+    "handtrackjs": "^0.1.5",
     "next": "^16.2.10",
     "qrcode": "^1.5.4",
     "react": "^18.3.1",
