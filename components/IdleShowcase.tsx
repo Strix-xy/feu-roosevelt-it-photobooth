@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { playClick } from "@/lib/sounds";
+import BrandLogos from "./BrandLogos";
 
 interface GalleryItem {
   url: string;
@@ -190,18 +191,21 @@ export default function IdleShowcase({ onDismiss }: Props) {
       />
 
       <div className="relative z-10 flex flex-col flex-1 min-h-0 justify-between py-6 sm:py-8 gap-4">
-        <header className="text-center px-4 shrink-0">
-          <p className="font-mono text-[10px] sm:text-xs tracking-[0.35em] text-feu-gold/70 uppercase mb-2">
-            FEU Roosevelt · IT Department
-          </p>
-          <h1 className="font-display font-extrabold text-3xl sm:text-5xl text-feu-cream tracking-tight">
-            Photobooth <span className="text-feu-gold">Showcase</span>
-          </h1>
-          {hasAny && (
-            <p className="mt-2 font-body text-sm text-feu-cream/45">
-              Recent strips rolling by — tap to join in
+        <header className="text-center px-4 shrink-0 animate-fade-up space-y-3">
+          <BrandLogos size="md" />
+          <div>
+            <p className="font-mono text-[10px] sm:text-xs tracking-[0.35em] text-feu-gold/70 uppercase mb-2">
+              FEU Roosevelt · IT Department
             </p>
-          )}
+            <h1 className="font-display font-extrabold text-3xl sm:text-5xl text-feu-cream tracking-tight">
+              Photobooth <span className="text-feu-gold">Showcase</span>
+            </h1>
+            {hasAny && (
+              <p className="mt-3 font-body text-sm text-feu-cream/50 max-w-md mx-auto">
+                Recent strips rolling by — tap anywhere to join in
+              </p>
+            )}
+          </div>
         </header>
 
         <div className="flex-1 min-h-0 flex flex-col justify-center gap-5 sm:gap-7">
@@ -265,9 +269,12 @@ export default function IdleShowcase({ onDismiss }: Props) {
           )}
         </div>
 
-        <p className="shrink-0 text-center font-display font-bold text-feu-gold text-lg sm:text-xl animate-pulse pb-1">
-          Tap anywhere to start
-        </p>
+        <div className="shrink-0 text-center pb-2 space-y-2">
+          <span className="inline-flex mx-auto h-px w-16 bg-gradient-to-r from-transparent via-feu-gold/60 to-transparent" />
+          <p className="font-display font-bold text-feu-gold text-lg sm:text-xl animate-pulse">
+            Tap anywhere to start
+          </p>
+        </div>
       </div>
     </button>
   );

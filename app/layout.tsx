@@ -1,17 +1,17 @@
 import type { Metadata, Viewport } from "next";
-import { Poppins, Inter, JetBrains_Mono } from "next/font/google";
+import { Sora, Figtree, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 
-const poppins = Poppins({
+const sora = Sora({
   subsets: ["latin"],
   variable: "--font-display",
   weight: ["600", "700", "800"],
 });
 
-const inter = Inter({
+const figtree = Figtree({
   subsets: ["latin"],
   variable: "--font-inter",
-  weight: ["400", "500", "600"],
+  weight: ["400", "500", "600", "700"],
 });
 
 const mono = JetBrains_Mono({
@@ -39,7 +39,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en" className={`${poppins.variable} ${inter.variable} ${mono.variable}`}>
+    <html lang="en" className={`${sora.variable} ${figtree.variable} ${mono.variable}`}>
       <body>{children}</body>
     </html>
   );

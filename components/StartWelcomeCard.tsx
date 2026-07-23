@@ -43,8 +43,13 @@ function patternStyle(border: BorderStyle): React.CSSProperties {
       };
     case "violet-clean":
       return {
-        backgroundImage: `linear-gradient(${accent}22 1px, transparent 1px), linear-gradient(90deg, ${accent}22 1px, transparent 1px)`,
-        backgroundSize: "32px 32px",
+        backgroundImage: `
+          radial-gradient(circle, ${primary}55 1.4px, transparent 1.5px),
+          linear-gradient(${accent}28 1px, transparent 1px),
+          linear-gradient(90deg, ${accent}28 1px, transparent 1px)
+        `,
+        backgroundSize: "26px 26px, 28px 28px, 28px 28px",
+        backgroundPosition: "0 0, 0 0, 0 0",
       };
     case "ocean-wave":
       return {
@@ -100,23 +105,68 @@ function CornerAccents({ border }: { border: BorderStyle }) {
     );
   }
 
+  if (border.design === "violet-clean") {
+    return (
+      <>
+        {(
+          [
+            "top-4 left-4",
+            "top-4 right-4",
+            "bottom-4 left-4",
+            "bottom-4 right-4",
+          ] as const
+        ).map((pos) => (
+          <span
+            key={pos}
+            className={`absolute ${pos} w-3 h-3 rotate-45 border-2`}
+            style={{ borderColor: color, opacity: 0.75 }}
+          />
+        ))}
+        <span
+          className="absolute top-1/2 left-5 -translate-y-1/2 w-1.5 h-1.5 rounded-full"
+          style={{ backgroundColor: color, opacity: 0.7 }}
+        />
+        <span
+          className="absolute top-1/2 right-5 -translate-y-1/2 w-1.5 h-1.5 rounded-full"
+          style={{ backgroundColor: color, opacity: 0.7 }}
+        />
+      </>
+    );
+  }
+
   return (
     <>
       <span
         className="absolute top-4 left-4 w-4 h-4 border-t-2 border-l-2 rounded-tl"
-        style={{ borderColor: `${color}${Math.round(opacity * 255).toString(16).padStart(2, "0")}` }}
+        style={{
+          borderColor: `${color}${Math.round(opacity * 255)
+            .toString(16)
+            .padStart(2, "0")}`,
+        }}
       />
       <span
         className="absolute top-4 right-4 w-4 h-4 border-t-2 border-r-2 rounded-tr"
-        style={{ borderColor: `${color}${Math.round(opacity * 255).toString(16).padStart(2, "0")}` }}
+        style={{
+          borderColor: `${color}${Math.round(opacity * 255)
+            .toString(16)
+            .padStart(2, "0")}`,
+        }}
       />
       <span
         className="absolute bottom-4 left-4 w-4 h-4 border-b-2 border-l-2 rounded-bl"
-        style={{ borderColor: `${color}${Math.round(opacity * 255).toString(16).padStart(2, "0")}` }}
+        style={{
+          borderColor: `${color}${Math.round(opacity * 255)
+            .toString(16)
+            .padStart(2, "0")}`,
+        }}
       />
       <span
         className="absolute bottom-4 right-4 w-4 h-4 border-b-2 border-r-2 rounded-br"
-        style={{ borderColor: `${color}${Math.round(opacity * 255).toString(16).padStart(2, "0")}` }}
+        style={{
+          borderColor: `${color}${Math.round(opacity * 255)
+            .toString(16)
+            .padStart(2, "0")}`,
+        }}
       />
     </>
   );
@@ -135,7 +185,7 @@ export default function StartWelcomeCard() {
 
   return (
     <motion.div
-      className="relative w-full border-2 flex flex-col items-center gap-5 p-8 overflow-hidden shadow-panel"
+      className="relative w-full border-2 flex flex-col items-center gap-5 p-8 sm:p-9 overflow-hidden shadow-panel animate-float-soft"
       animate={{
         backgroundColor: border.primaryDark,
         borderColor: `${border.accent}55`,
@@ -143,6 +193,12 @@ export default function StartWelcomeCard() {
       }}
       transition={{ duration: 0.85, ease: [0.4, 0, 0.2, 1] }}
     >
+      <div
+        className="pointer-events-none absolute -top-16 left-1/2 -translate-x-1/2 w-56 h-56 rounded-full opacity-30 blur-3xl"
+        style={{ background: border.accent }}
+        aria-hidden
+      />
+
       <AnimatePresence mode="wait">
         <motion.div
           key={border.id}
@@ -166,11 +222,11 @@ export default function StartWelcomeCard() {
       <CornerAccents border={border} />
 
       <motion.div
-        className="relative w-20 h-20 rounded-full flex items-center justify-center mt-2 shadow-lg"
+        className="relative w-[4.75rem] h-[4.75rem] rounded-full flex items-center justify-center mt-1 shadow-gold-soft ring-4 ring-white/10"
         animate={{ backgroundColor: border.accent }}
         transition={{ duration: 0.85 }}
       >
-        <svg width="36" height="36" viewBox="0 0 24 24" fill="none">
+        <svg width="34" height="34" viewBox="0 0 24 24" fill="none">
           <path
             d="M4 8a2 2 0 0 1 2-2h2l1.5-2h5L16 6h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V8Z"
             stroke={border.primaryDark}
@@ -180,28 +236,42 @@ export default function StartWelcomeCard() {
         </svg>
       </motion.div>
 
-      <div className="relative flex gap-2">
+      <div className="relative flex gap-2.5">
         {[0, 1, 2, 3].map((i) => (
           <motion.div
             key={i}
-            className="w-9 h-12 rounded-md border-2"
+            className="w-9 h-[3.15rem] rounded-md border-2 shadow-sm"
             animate={{
               borderColor: `${border.accent}99`,
               backgroundColor: `${border.cream}18`,
             }}
-            transition={{ duration: 0.85 }}
+            transition={{ duration: 0.85, delay: i * 0.04 }}
           />
         ))}
       </div>
 
-      <p className="relative text-feu-cream/90 font-body text-base leading-relaxed">
+      <p className="relative text-white font-body text-[0.95rem] sm:text-base leading-relaxed max-w-[22rem] drop-shadow-[0_1px_2px_rgba(0,0,0,0.45)]">
         Pick a layout and border, strike a pose — we&apos;ll count you in and
-        capture your shots automatically. Scan the QR code afterward to send it
-        straight to your phone.
+        capture your shots automatically. Scan the QR afterward to send it to
+        your phone.
       </p>
 
+      <div className="relative flex items-center gap-2">
+        {BORDER_STYLE_LIST.map((b, i) => (
+          <span
+            key={b.id}
+            className="h-1.5 rounded-full transition-all duration-500"
+            style={{
+              width: i === index ? "1.25rem" : "0.4rem",
+              backgroundColor: i === index ? border.accent : `${border.accent}44`,
+            }}
+            aria-hidden
+          />
+        ))}
+      </div>
+
       <motion.p
-        className="relative font-mono text-[10px] tracking-widest uppercase"
+        className="relative font-mono text-[10px] tracking-[0.22em] uppercase"
         animate={{ color: `${border.accent}99` }}
         transition={{ duration: 0.85 }}
       >

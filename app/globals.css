@@ -2,21 +2,31 @@
 @tailwind components;
 @tailwind utilities;
 
+:root {
+  --feu-green: #0e6b34;
+  --feu-green-dark: #052e17;
+  --feu-gold: #ffc20e;
+  --feu-cream: #faf6ec;
+  --feu-ink: #14231b;
+}
+
 html,
 body {
   height: 100%;
 }
 
 body {
-  @apply bg-feu-cream text-feu-ink font-body antialiased;
+  @apply text-feu-ink font-body antialiased;
   font-size: 16px;
   line-height: 1.55;
-  background-image: radial-gradient(
-    circle at 1px 1px,
-    rgba(14, 107, 52, 0.12) 1px,
-    transparent 0
-  );
-  background-size: 22px 22px;
+  background-color: var(--feu-cream);
+  background-image:
+    radial-gradient(ellipse 90% 55% at 12% -8%, rgba(14, 107, 52, 0.14), transparent 55%),
+    radial-gradient(ellipse 70% 45% at 92% 8%, rgba(255, 194, 14, 0.18), transparent 50%),
+    radial-gradient(ellipse 60% 40% at 50% 108%, rgba(14, 107, 52, 0.1), transparent 55%),
+    radial-gradient(circle at 1px 1px, rgba(14, 107, 52, 0.09) 1px, transparent 0);
+  background-size: auto, auto, auto, 22px 22px;
+  background-attachment: fixed;
 }
 
 ::selection {
@@ -24,7 +34,6 @@ body {
   color: #052e17;
 }
 
-/* thin gold scrollbar */
 ::-webkit-scrollbar {
   width: 8px;
   height: 8px;
@@ -37,7 +46,6 @@ body {
   background: transparent;
 }
 
-/* mirror the live camera feed like a real mirror/photobooth glass */
 .mirror {
   transform: scaleX(-1);
 }
@@ -47,7 +55,68 @@ body {
   stroke-linecap: round;
 }
 
-/* Idle showcase marquees — seamless horizontal loops */
+/* Primary CTA — warm gold with soft lift */
+@layer components {
+  .btn-gold {
+    @apply inline-flex items-center justify-center font-display font-bold
+      bg-gold-cta text-feu-greenDark shadow-gold-soft
+      hover:brightness-[1.04] active:scale-[0.97]
+      transition-all duration-200 disabled:opacity-60 disabled:active:scale-100
+      disabled:hover:brightness-100;
+  }
+
+  .btn-ghost-gold {
+    @apply inline-flex items-center justify-center font-display font-semibold
+      border border-feu-gold/45 text-feu-gold
+      hover:bg-feu-gold/10 active:scale-[0.97]
+      transition-all duration-200;
+  }
+
+  .stage-shell {
+    @apply relative w-full max-w-5xl;
+  }
+
+  .panel-dark {
+    @apply relative overflow-hidden bg-feu-greenDark border border-feu-gold/20
+      shadow-panel bg-panel-shine;
+  }
+}
+
+/* Ambient wash for share / result surfaces */
+.ambient-layer {
+  pointer-events: none;
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+}
+
+.ambient-orb {
+  position: absolute;
+  border-radius: 9999px;
+  filter: blur(64px);
+  opacity: 0.45;
+  will-change: transform;
+  animation: float-soft 8s ease-in-out infinite;
+}
+
+.ambient-orb--green {
+  width: min(52vw, 28rem);
+  height: min(52vw, 28rem);
+  top: -12%;
+  left: -8%;
+  background: rgba(14, 107, 52, 0.35);
+}
+
+.ambient-orb--gold {
+  width: min(48vw, 24rem);
+  height: min(48vw, 24rem);
+  bottom: -10%;
+  right: -6%;
+  background: rgba(255, 194, 14, 0.32);
+  animation-delay: -3s;
+}
+
 @keyframes marquee-left {
   from {
     transform: translateX(0);
@@ -63,5 +132,15 @@ body {
   }
   to {
     transform: translateX(0);
+  }
+}
+
+@keyframes float-soft {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-10px);
   }
 }

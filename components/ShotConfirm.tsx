@@ -34,17 +34,20 @@ export default function ShotConfirm({
 
   return (
     <div className="flex flex-col items-center gap-6 w-full max-w-4xl py-4">
-      <div className="text-center space-y-1 px-4">
-        <h2 className="font-display font-extrabold text-2xl sm:text-3xl text-feu-greenDark">
+      <div className="text-center space-y-2 px-4">
+        <p className="font-mono text-[10px] tracking-[0.28em] text-feu-green/55 uppercase">
+          Almost there
+        </p>
+        <h2 className="font-display font-extrabold text-2xl sm:text-3xl text-feu-greenDark tracking-tight">
           Looking good?
         </h2>
-        <p className="font-body text-sm text-feu-ink/60">
+        <p className="font-body text-sm text-feu-ink/60 max-w-md mx-auto">
           Retake any shot you don&apos;t like, then keep all to finish your strip.
         </p>
       </div>
 
       <div
-        className="relative mx-auto rounded-2xl border-2 shadow-panel p-3 sm:p-4"
+        className="relative mx-auto rounded-2xl border-2 shadow-panel p-3 sm:p-4 ring-1 ring-black/5"
         style={{
           backgroundColor: border.cream,
           borderColor: `${border.accent}80`,
@@ -116,7 +119,7 @@ export default function ShotConfirm({
           playConfirm();
           onKeepAll();
         }}
-        className="px-10 py-4 rounded-full bg-feu-gold text-feu-greenDark font-display font-bold text-lg shadow-gold hover:brightness-105 active:scale-95 transition-all disabled:opacity-60"
+        className="btn-gold px-10 py-4 rounded-2xl text-lg"
       >
         {composing ? "Composing…" : "Keep all"}
       </button>

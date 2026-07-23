@@ -11,6 +11,7 @@ import StartWelcomeCard from "./StartWelcomeCard";
 import ShotConfirm from "./ShotConfirm";
 import ResultScreen from "./ResultScreen";
 import IdleShowcase from "./IdleShowcase";
+import BrandLogos from "./BrandLogos";
 import { Stage, TemplateId, TEMPLATES, getCellRects, isWideTemplate } from "@/lib/types";
 import { BorderStyleId, BORDER_STYLES, BORDER_STYLE_LIST, DEFAULT_FOOTER } from "@/lib/borders";
 import { FilterId, FILTER_LIST, FILTERS, DEFAULT_FILTER } from "@/lib/filters";
@@ -90,7 +91,7 @@ function BackButton({ onClick, label }: { onClick: () => void; label: string }) 
         playClick();
         onClick();
       }}
-      className="flex items-center gap-1.5 text-feu-greenDark/70 hover:text-feu-greenDark font-body text-sm font-medium transition-colors"
+      className="flex items-center gap-1.5 px-2.5 py-1.5 -ml-2.5 rounded-lg text-feu-greenDark/65 hover:text-feu-greenDark hover:bg-feu-greenDark/[0.05] font-body text-sm font-medium transition-colors"
     >
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
         <path d="M15 6l-6 6 6 6" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
@@ -382,51 +383,72 @@ export default function Photobooth() {
 
   return (
     <main
-      className={`min-h-screen flex flex-col items-center p-4 sm:p-6 ${
+      className={`relative min-h-screen flex flex-col items-center p-4 sm:p-6 ${
         stage === "start" ? "justify-center" : "gap-4"
       }`}
     >
       {stage === "start" ? (
-        <motion.div className="flex flex-col items-center justify-center w-full max-w-md gap-6 sm:gap-8 text-center min-h-[calc(100dvh-3rem)] pb-12">
-          <header className="shrink-0">
-            <p className="font-mono text-xs tracking-[0.3em] text-feu-green/70 uppercase mb-1">
+        <>
+          <BrandLogos size="md" layout="split" />
+          <motion.div className="flex flex-col items-center justify-center w-full max-w-lg gap-7 sm:gap-8 text-center min-h-[calc(100dvh-3rem)] pb-14 pt-2">
+          <header className="shrink-0 space-y-3 animate-fade-up">
+            <p className="font-mono text-[11px] sm:text-xs tracking-[0.32em] text-feu-green/75 uppercase">
               Information Technology Department
             </p>
-            <h1 className="font-display font-extrabold text-3xl sm:text-4xl text-feu-greenDark tracking-tight">
-              FEU Roosevelt <span className="text-feu-gold">IT</span> Photobooth
+            <h1 className="font-display font-extrabold text-[2.15rem] leading-[1.1] sm:text-5xl text-feu-greenDark tracking-tight">
+              FEU Roosevelt
+              <span className="block mt-1.5 sm:mt-2">
+                <span className="text-feu-gold">IT</span> Photobooth
+              </span>
             </h1>
+            <p className="font-body text-sm sm:text-base text-feu-ink/55 max-w-sm mx-auto leading-relaxed">
+              Campus strips, instant QR — strike a pose and take one home.
+            </p>
           </header>
 
           <AnimatePresence mode="wait">
             <motion.div
               key="start"
-              initial={{ opacity: 0, y: 16 }}
+              initial={{ opacity: 0, y: 18 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -16 }}
-              className="flex flex-col items-center gap-6 w-full"
+              transition={{ duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
+              className="flex flex-col items-center gap-6 w-full max-w-md"
             >
               <StartWelcomeCard />
-              <button
-                onClick={() => {
-                  unlockAudio();
-                  playConfirm();
-                  setStage("template");
-                }}
-                className="px-7 py-3 rounded-full bg-feu-gold text-feu-greenDark font-display font-bold text-base shadow-gold hover:brightness-105 active:scale-95 transition-all"
-              >
-                Start Photobooth
-              </button>
+              <div className="relative">
+                <span
+                  className="absolute inset-0 rounded-2xl bg-feu-gold/35 animate-pulse-ring"
+                  aria-hidden
+                />
+                <button
+                  onClick={() => {
+                    unlockAudio();
+                    playConfirm();
+                    setStage("template");
+                  }}
+                  className="btn-gold relative px-9 py-3.5 rounded-2xl text-base sm:text-lg"
+                >
+                  Start Photobooth
+                </button>
+              </div>
             </motion.div>
           </AnimatePresence>
         </motion.div>
+        </>
       ) : (
         <>
           {(stage === "template" || stage === "camera" || stage === "confirm") && (
-            <motion.div className="w-full max-w-5xl flex items-center justify-between shrink-0">
+            <motion.div className="stage-shell flex items-center justify-between shrink-0 pt-1">
               <BackButton onClick={goBack} label="Back" />
-              <p className="font-display font-bold text-base sm:text-lg text-feu-greenDark">
-                {stageTitle}
-              </p>
+              <div className="text-center px-2">
+                <p className="font-mono text-[9px] tracking-[0.28em] text-feu-green/50 uppercase mb-0.5 hidden sm:block">
+                  FEU Roosevelt · IT
+                </p>
+                <p className="font-display font-bold text-base sm:text-lg text-feu-greenDark">
+                  {stageTitle}
+                </p>
+              </div>
               <span className="w-12" />
             </motion.div>
           )}
@@ -450,10 +472,10 @@ export default function Photobooth() {
                           playClick();
                           setTemplateId(t.id);
                         }}
-                        className={`flex flex-col items-center justify-center gap-4 p-6 sm:p-8 rounded-3xl border-2 transition-all text-center min-h-[220px] sm:min-h-[260px] ${
+                        className={`flex flex-col items-center justify-center gap-4 p-6 sm:p-8 rounded-3xl border-2 transition-all duration-300 text-center min-h-[220px] sm:min-h-[260px] ${
                           selected
-                            ? "border-feu-gold bg-feu-greenDark shadow-gold scale-[1.02]"
-                            : "border-feu-green/20 bg-white hover:border-feu-gold/60"
+                            ? "border-feu-gold bg-feu-greenDark shadow-gold scale-[1.02] bg-panel-shine"
+                            : "border-feu-green/15 bg-white/80 backdrop-blur-sm shadow-panel-lift hover:border-feu-gold/55 hover:-translate-y-0.5"
                         }`}
                       >
                         <div className="h-[112px] flex items-center justify-center">
@@ -491,7 +513,7 @@ export default function Photobooth() {
                     playConfirm();
                     setStage("camera");
                   }}
-                  className="px-10 py-4 rounded-full bg-feu-gold text-feu-greenDark font-display font-bold text-lg shadow-gold hover:brightness-105 active:scale-95 transition-all"
+                  className="btn-gold px-10 py-4 rounded-2xl text-lg"
                 >
                   Continue to Camera
                 </button>
@@ -530,7 +552,7 @@ export default function Photobooth() {
                     }}
                   >
                     <div
-                      className="relative w-full rounded-3xl overflow-hidden shadow-panel border-4 bg-feu-greenDark"
+                      className="relative w-full rounded-3xl overflow-hidden shadow-panel border-4 bg-feu-greenDark ring-1 ring-black/10"
                       style={{
                         aspectRatio: currentRect.w / currentRect.h,
                         borderColor: `${border.accent}99`,
@@ -596,7 +618,7 @@ export default function Photobooth() {
                         else runSession();
                       }}
                       disabled={capturing}
-                      className="w-full py-2.5 sm:py-3 rounded-full bg-feu-gold text-feu-greenDark font-display font-bold text-base shadow-gold hover:brightness-105 active:scale-95 transition-all disabled:opacity-60 disabled:active:scale-100"
+                      className="btn-gold w-full py-2.5 sm:py-3 rounded-2xl text-base"
                     >
                       {capturing
                         ? "Capturing…"
@@ -681,7 +703,7 @@ export default function Photobooth() {
         onClick={toggleMute}
         aria-label={soundMuted ? "Unmute sound effects" : "Mute sound effects"}
         title={soundMuted ? "Unmute" : "Mute"}
-        className="fixed bottom-2 left-4 sm:left-6 z-40 flex items-center gap-1.5 px-2.5 py-1.5 rounded-full bg-feu-greenDark/80 text-feu-cream/90 border border-feu-gold/30 hover:bg-feu-greenDark transition-colors"
+        className="fixed bottom-2 left-4 sm:left-6 z-40 flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-feu-greenDark/85 text-feu-cream/90 border border-feu-gold/30 backdrop-blur-md hover:bg-feu-greenDark hover:border-feu-gold/50 transition-colors shadow-panel-lift"
       >
         {soundMuted ? (
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden>
@@ -700,7 +722,7 @@ export default function Photobooth() {
       </button>
 
       <p
-        className="fixed bottom-2 right-4 sm:right-6 text-right font-mono text-[10px] tracking-widest text-feu-greenDark/25 pointer-events-none select-none"
+        className="fixed bottom-2 right-4 sm:right-6 text-right font-mono text-[10px] tracking-widest text-feu-greenDark/30 pointer-events-none select-none"
         aria-hidden
       >
         Developed by Strix

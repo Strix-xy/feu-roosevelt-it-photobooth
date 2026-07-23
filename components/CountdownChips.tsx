@@ -33,10 +33,10 @@ export default function CountdownChips({
                 playClick();
                 onSelect(p.id);
               }}
-              className={`flex-1 max-w-[8.5rem] px-2.5 py-2 rounded-xl font-display text-sm font-bold transition-all active:scale-95 disabled:opacity-50 ${
+              className={`flex-1 max-w-[8.5rem] px-2.5 py-2.5 rounded-xl font-display text-sm font-bold transition-all active:scale-95 disabled:opacity-50 ${
                 active
-                  ? "bg-feu-greenDark text-feu-cream shadow-sm"
-                  : "bg-white text-feu-greenDark/80 border border-feu-green/20 hover:border-feu-gold/60"
+                  ? "bg-feu-greenDark text-feu-cream shadow-panel-lift ring-2 ring-feu-gold/40"
+                  : "bg-white/85 text-feu-greenDark/80 border border-feu-green/15 shadow-sm hover:border-feu-gold/60"
               }`}
             >
               {p.label}

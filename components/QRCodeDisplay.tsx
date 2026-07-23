@@ -71,7 +71,7 @@ export default function QRCodeDisplay({ sessionId, error }: Props) {
 
   return (
     <div className="flex flex-col items-center gap-4">
-      <div className="bg-feu-cream p-4 sm:p-5 rounded-3xl shadow-gold">
+      <div className="bg-feu-cream p-4 sm:p-5 rounded-3xl shadow-gold ring-1 ring-feu-gold/25">
         <img src={state.qr} alt="Scan to download your photo" width={240} height={240} />
       </div>
       <p className="text-sm text-feu-cream/70 font-body text-center max-w-[260px]">

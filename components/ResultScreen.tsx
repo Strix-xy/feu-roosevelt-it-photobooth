@@ -105,10 +105,17 @@ export default function ResultScreen({
       className="flex flex-col lg:flex-row items-center justify-center gap-8 lg:gap-10 w-full max-w-6xl py-4"
     >
       <div className="shrink-0 animate-pop-in flex items-center justify-center relative">
+        <div
+          className="pointer-events-none absolute -inset-6 rounded-[2rem] opacity-40 blur-2xl"
+          style={{
+            background: `radial-gradient(circle, ${border.accent}55 0%, transparent 70%)`,
+          }}
+          aria-hidden
+        />
         <img
           src={stripUrl}
           alt="Your photostrip"
-          className="rounded-2xl shadow-panel transition-opacity duration-300"
+          className="relative rounded-2xl shadow-panel ring-1 ring-feu-gold/20 transition-opacity duration-300"
           style={{
             maxWidth: "min(92vw, 46rem)",
             maxHeight: "86vh",
@@ -118,15 +125,18 @@ export default function ResultScreen({
           }}
         />
         {recomposing && (
-          <span className="absolute bottom-3 left-1/2 -translate-x-1/2 px-3 py-1 rounded-full bg-feu-greenDark/80 text-feu-cream text-xs font-mono">
+          <span className="absolute bottom-3 left-1/2 -translate-x-1/2 px-3 py-1 rounded-full bg-feu-greenDark/80 text-feu-cream text-xs font-mono backdrop-blur-sm">
             Updating…
           </span>
         )}
       </div>
 
-      <div className="flex-1 w-full max-w-md lg:max-w-lg flex flex-col gap-5 bg-feu-greenDark rounded-3xl p-7 sm:p-9 shadow-panel border border-feu-gold/20">
-        <header className="text-center space-y-1.5">
-          <h2 className="font-display font-extrabold text-3xl text-feu-cream">
+      <div className="panel-dark flex-1 w-full max-w-md lg:max-w-lg flex flex-col gap-5 rounded-3xl p-7 sm:p-9">
+        <header className="text-center space-y-2">
+          <p className="font-mono text-[10px] tracking-[0.3em] text-feu-gold/65 uppercase">
+            Session complete
+          </p>
+          <h2 className="font-display font-extrabold text-3xl text-feu-cream tracking-tight">
             Looking good!
           </h2>
           <p className="text-feu-cream/65 text-sm font-body leading-relaxed">
@@ -158,7 +168,7 @@ export default function ResultScreen({
               onChange={(e) => onFooterChange(e.target.value)}
               maxLength={80}
               placeholder='git commit -m "Your message"'
-              className="w-full pl-7 pr-4 py-3 rounded-xl bg-feu-cream/95 text-feu-greenDark font-mono text-sm border-2 border-transparent focus:border-feu-gold focus:outline-none transition-colors"
+              className="w-full pl-7 pr-4 py-3 rounded-xl bg-feu-cream/95 text-feu-greenDark font-mono text-sm border-2 border-transparent focus:border-feu-gold focus:outline-none focus:shadow-gold transition-all"
             />
           </div>
 
@@ -179,7 +189,7 @@ export default function ResultScreen({
                     }}
                     className={`text-left px-3 py-2 rounded-lg font-mono text-[11px] leading-snug transition-all active:scale-[0.98] truncate ${
                       selected
-                        ? "bg-feu-gold text-feu-greenDark"
+                        ? "bg-feu-gold text-feu-greenDark shadow-gold-soft"
                         : "bg-feu-cream/8 text-feu-cream/70 hover:bg-feu-cream/14 border border-feu-gold/20"
                     }`}
                     title={preset}
@@ -204,7 +214,7 @@ export default function ResultScreen({
             href={stripUrl}
             download={`feu-roosevelt-it-photobooth-${Date.now()}.png`}
             onClick={() => playConfirm()}
-            className="text-center flex-1 px-6 py-3.5 rounded-xl bg-feu-gold text-feu-greenDark font-display font-bold text-base shadow-gold hover:brightness-105 active:scale-95 transition-all"
+            className="btn-gold text-center flex-1 px-6 py-3.5 rounded-2xl text-base"
           >
             Download
           </a>
@@ -213,7 +223,7 @@ export default function ResultScreen({
               playClick();
               onNewSession();
             }}
-            className="flex-1 px-6 py-3.5 rounded-xl border border-feu-gold/50 text-feu-gold font-display font-semibold text-base hover:bg-feu-gold/10 active:scale-95 transition-all"
+            className="btn-ghost-gold flex-1 px-6 py-3.5 rounded-2xl text-base"
           >
             New Session
           </button>

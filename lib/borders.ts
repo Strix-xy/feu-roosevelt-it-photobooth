@@ -37,7 +37,7 @@ export const BORDER_STYLES: Record<BorderStyleId, BorderStyle> = {
   feu: {
     id: "feu",
     label: "FEU Classic",
-    description: "Ticket notches, PCB dots & circuit traces — the original IT look.",
+    description: "Ticket notches, PCB dots, circuit flanks & gold rail — the original IT look.",
     design: "feu-classic",
     primary: "#0E6B34",
     primaryDark: "#052E17",
@@ -52,7 +52,7 @@ export const BORDER_STYLES: Record<BorderStyleId, BorderStyle> = {
   "royal-blue": {
     id: "royal-blue",
     label: "Royal Blue",
-    description: "Regal double frames with diamond crest corners & crosshatch weave.",
+    description: "Heraldic double frames, diamond crest & woven crosshatch.",
     design: "royal-crest",
     primary: "#1E40AF",
     primaryDark: "#0F172A",
@@ -67,7 +67,7 @@ export const BORDER_STYLES: Record<BorderStyleId, BorderStyle> = {
   crimson: {
     id: "crimson",
     label: "Crimson",
-    description: "Vintage banner header with ornate flourishes & diagonal stripes.",
+    description: "Vintage banner header, gold filigree corners & diagonal stripes.",
     design: "crimson-ornate",
     primary: "#B91C1C",
     primaryDark: "#450A0A",
@@ -82,7 +82,7 @@ export const BORDER_STYLES: Record<BorderStyleId, BorderStyle> = {
   "blush-pink": {
     id: "blush-pink",
     label: "Blush Pink",
-    description: "Soft polka dots, bubbly rounded frames & a dreamy neon glow.",
+    description: "Soft polka dots, sparkle clusters & a dreamy neon glow.",
     design: "blush-glow",
     primary: "#DB2777",
     primaryDark: "#500724",
@@ -97,7 +97,7 @@ export const BORDER_STYLES: Record<BorderStyleId, BorderStyle> = {
   violet: {
     id: "violet",
     label: "Violet",
-    description: "Ultra-clean geometry — thin rules, open space & sharp modern lines.",
+    description: "Constellation grid, prism corners & gem accents — cosmic modern.",
     design: "violet-clean",
     primary: "#7C3AED",
     primaryDark: "#2E1065",
@@ -106,13 +106,13 @@ export const BORDER_STYLES: Record<BorderStyleId, BorderStyle> = {
     mat: "#F3E8FF",
     tagline: "#7C3AED",
     muted: "#6B7280",
-    dotGrid: "rgba(124,58,237,0.07)",
-    shadow: "rgba(46,16,101,0.25)",
+    dotGrid: "rgba(124,58,237,0.10)",
+    shadow: "rgba(46,16,101,0.28)",
   },
   "ocean-teal": {
     id: "ocean-teal",
     label: "Ocean Teal",
-    description: "Flowing wave accents, bubble texture & pill-shaped photo frames.",
+    description: "Layered waves, foam bubbles & pill-shaped photo frames.",
     design: "ocean-wave",
     primary: "#0D9488",
     primaryDark: "#042F2E",
