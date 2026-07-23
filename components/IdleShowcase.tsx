@@ -44,11 +44,20 @@ function probeOrientation(url: string): Promise<OrientedItem> {
   });
 }
 
+/** Pad until the track is long enough to fill wide screens without gaps. */
+function buildSequence(items: OrientedItem[], minCount: number): OrientedItem[] {
+  if (items.length === 0) return [];
+  let seq = [...items];
+  while (seq.length < minCount) {
+    seq = [...seq, ...items];
+  }
+  return seq;
+}
+
 function MarqueeRow({
   items,
   direction,
   kind,
-  /** When both orientations share the screen, use compact sizing */
   compact = false,
 }: {
   items: OrientedItem[];
@@ -56,32 +65,36 @@ function MarqueeRow({
   kind: "portrait" | "landscape";
   compact?: boolean;
 }) {
-  const sequence = useMemo(() => {
-    if (items.length === 0) return [];
-    let seq = [...items];
-    while (seq.length < 8) seq = [...seq, ...items];
-    return seq;
-  }, [items]);
+  // Portrait cards are narrow — need many copies so the loop never shows empty green
+  const minCount = kind === "portrait" ? 28 : 14;
+  const sequence = useMemo(
+    () => buildSequence(items, minCount),
+    [items, minCount]
+  );
 
   if (items.length === 0) return null;
 
-  const duration = kind === "portrait" ? 55 : 70;
+  const duration = kind === "portrait" ? 65 : 75;
   const anim = direction === "left" ? "marquee-left" : "marquee-right";
 
   const heightCss =
     kind === "portrait"
       ? compact
-        ? "min(24vh, 13.5rem)"
-        : "min(30vh, 16.5rem)"
+        ? "min(36vh, 20rem)"
+        : "min(42vh, 24rem)"
       : compact
-        ? "min(12vh, 7rem)"
-        : "min(15vh, 8.5rem)";
+        ? "min(16vh, 9.5rem)"
+        : "min(18vh, 11rem)";
+
+  const gapClass = "gap-4 sm:gap-5";
+  // Match gap so the seam between duplicated halves is invisible
+  const seamPad = "pr-4 sm:pr-5";
 
   const cards = (keyPrefix: string) =>
     sequence.map((item, i) => (
       <div
         key={`${keyPrefix}-${item.url}-${i}`}
-        className="shrink-0 rounded-xl sm:rounded-2xl overflow-hidden border border-feu-gold/35 shadow-[0_10px_32px_rgba(0,0,0,0.45)] bg-feu-greenDark/50 ring-1 ring-white/5"
+        className="shrink-0 rounded-xl sm:rounded-2xl overflow-hidden border border-feu-gold/40 shadow-[0_12px_36px_rgba(0,0,0,0.5)] bg-feu-cream/5 ring-1 ring-white/10"
         style={{
           height: heightCss,
           width: `calc(${heightCss} * ${item.aspect})`,
@@ -91,7 +104,7 @@ function MarqueeRow({
           src={item.url}
           alt=""
           draggable={false}
-          className="w-full h-full object-contain bg-feu-greenDark/30"
+          className="w-full h-full object-contain"
         />
       </div>
     ));
@@ -99,28 +112,29 @@ function MarqueeRow({
   return (
     <div className="relative w-full overflow-hidden">
       <div
-        className="pointer-events-none absolute inset-y-0 left-0 z-10 w-12 sm:w-24"
+        className="pointer-events-none absolute inset-y-0 left-0 z-10 w-10 sm:w-20"
         style={{
           background: "linear-gradient(to right, #052E17 0%, transparent 100%)",
         }}
       />
       <div
-        className="pointer-events-none absolute inset-y-0 right-0 z-10 w-12 sm:w-24"
+        className="pointer-events-none absolute inset-y-0 right-0 z-10 w-10 sm:w-20"
         style={{
           background: "linear-gradient(to left, #052E17 0%, transparent 100%)",
         }}
       />
 
       <div
-        className="flex w-max items-center will-change-transform py-1"
+        className="flex w-max items-center will-change-transform"
         style={{
           animation: `${anim} ${duration}s linear infinite`,
         }}
       >
-        <div className="flex items-center gap-4 sm:gap-6 pr-4 sm:pr-6">
+        {/* Two identical halves — translateX(-50%) loops with no jump */}
+        <div className={`flex items-center ${gapClass} ${seamPad}`}>
           {cards("a")}
         </div>
-        <div className="flex items-center gap-4 sm:gap-6 pr-4 sm:pr-6" aria-hidden>
+        <div className={`flex items-center ${gapClass} ${seamPad}`} aria-hidden>
           {cards("b")}
         </div>
       </div>
@@ -136,8 +150,8 @@ function ShowcaseBand({
   children: React.ReactNode;
 }) {
   return (
-    <section className="shrink-0 space-y-2.5">
-      <div className="flex items-center gap-3 px-5 sm:px-10">
+    <section className="shrink-0 space-y-2">
+      <div className="flex items-center gap-3 px-4 sm:px-8">
         <p className="font-mono text-[9px] sm:text-[10px] tracking-[0.28em] text-feu-gold/55 uppercase shrink-0">
           {label}
         </p>
@@ -205,6 +219,8 @@ export default function IdleShowcase({ onDismiss }: Props) {
       }}
       aria-label="Tap to start photobooth"
     >
+      <BrandLogos size="md" layout="split" className="!z-[60]" />
+
       <div
         className="absolute inset-0 opacity-[0.06] pointer-events-none"
         style={{
@@ -215,32 +231,29 @@ export default function IdleShowcase({ onDismiss }: Props) {
       />
 
       <div
-        className="pointer-events-none absolute left-1/2 top-[42%] -translate-x-1/2 -translate-y-1/2 w-[70vw] h-[40vh] rounded-full opacity-20 blur-3xl"
+        className="pointer-events-none absolute left-1/2 top-[45%] -translate-x-1/2 -translate-y-1/2 w-[75vw] h-[45vh] rounded-full opacity-20 blur-3xl"
         style={{
           background:
             "radial-gradient(circle, rgba(255,194,14,0.35) 0%, transparent 70%)",
         }}
       />
 
-      <div className="relative z-10 flex flex-col flex-1 min-h-0 py-5 sm:py-7 gap-4 sm:gap-5">
-        <header className="text-center px-4 shrink-0 animate-fade-up space-y-2.5">
-          <BrandLogos size="sm" />
-          <div>
-            <p className="font-mono text-[10px] sm:text-xs tracking-[0.35em] text-feu-gold/70 uppercase mb-1.5">
-              FEU Roosevelt · IT Department
+      <div className="relative z-10 flex flex-col flex-1 min-h-0 pt-4 sm:pt-5 pb-4 sm:pb-5 gap-3 sm:gap-4">
+        <header className="text-center px-20 sm:px-28 shrink-0 animate-fade-up">
+          <p className="font-mono text-[10px] sm:text-xs tracking-[0.35em] text-feu-gold/70 uppercase mb-1.5">
+            FEU Roosevelt · IT Department
+          </p>
+          <h1 className="font-display font-extrabold text-2xl sm:text-4xl text-feu-cream tracking-tight">
+            Photobooth <span className="text-feu-gold">Showcase</span>
+          </h1>
+          {hasAny && (
+            <p className="mt-1.5 font-body text-sm text-feu-cream/50 max-w-md mx-auto">
+              Recent strips rolling by — tap anywhere to join in
             </p>
-            <h1 className="font-display font-extrabold text-2xl sm:text-4xl text-feu-cream tracking-tight">
-              Photobooth <span className="text-feu-gold">Showcase</span>
-            </h1>
-            {hasAny && (
-              <p className="mt-2 font-body text-sm text-feu-cream/50 max-w-md mx-auto">
-                Recent strips rolling by — tap anywhere to join in
-              </p>
-            )}
-          </div>
+          )}
         </header>
 
-        <div className="flex-1 min-h-0 flex flex-col justify-center gap-5 sm:gap-6 overflow-hidden">
+        <div className="flex-1 min-h-0 flex flex-col justify-center gap-4 sm:gap-5 overflow-hidden">
           {loaded && !hasAny && (
             <div className="text-center space-y-3 px-6">
               <p className="font-display font-bold text-2xl text-feu-cream">
@@ -276,7 +289,6 @@ export default function IdleShowcase({ onDismiss }: Props) {
                 </ShowcaseBand>
               )}
 
-              {/* Single-orientation: second reverse row, slightly smaller */}
               {portraits.length > 0 && landscapes.length === 0 && (
                 <ShowcaseBand label="More portraits">
                   <MarqueeRow
@@ -301,7 +313,7 @@ export default function IdleShowcase({ onDismiss }: Props) {
           )}
         </div>
 
-        <div className="shrink-0 flex justify-center pb-3 sm:pb-4 px-4">
+        <div className="shrink-0 flex justify-center px-4">
           <span className="btn-gold pointer-events-none inline-flex items-center gap-2 px-7 sm:px-9 py-3 sm:py-3.5 rounded-2xl text-base sm:text-lg shadow-gold animate-pulse">
             Tap anywhere to start
           </span>
