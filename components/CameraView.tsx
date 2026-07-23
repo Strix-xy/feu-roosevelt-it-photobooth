@@ -1,6 +1,6 @@
 "use client";
 
-import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from "react";
+import { forwardRef, useCallback, useEffect, useRef, useState } from "react";
 import { FilterId, getFilterCss } from "@/lib/filters";
 
 interface Props {
@@ -12,14 +12,22 @@ const CameraView = forwardRef<HTMLVideoElement, Props>(function CameraView(
   { active, filterId = "none" },
   ref
 ) {
-  const videoRef = useRef<HTMLVideoElement>(null);
+  const videoRef = useRef<HTMLVideoElement | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  useImperativeHandle(ref, () => videoRef.current as HTMLVideoElement);
+  const setVideoRef = useCallback(
+    (el: HTMLVideoElement | null) => {
+      videoRef.current = el;
+      if (typeof ref === "function") ref(el);
+      else if (ref) ref.current = el;
+    },
+    [ref]
+  );
 
   useEffect(() => {
     if (!active) return;
-    let stream: MediaStream;
+    let stream: MediaStream | undefined;
+    let cancelled = false;
 
     navigator.mediaDevices
       .getUserMedia({
@@ -31,18 +39,33 @@ const CameraView = forwardRef<HTMLVideoElement, Props>(function CameraView(
         audio: false,
       })
       .then((s) => {
-        stream = s;
-        if (videoRef.current) {
-          videoRef.current.srcObject = s;
+        if (cancelled) {
+          s.getTracks().forEach((t) => t.stop());
+          return;
         }
+        stream = s;
+        const el = videoRef.current;
+        if (!el) return;
+        el.srcObject = s;
+        const syncSize = () => {
+          if (el.videoWidth > 0) {
+            el.width = el.videoWidth;
+            el.height = el.videoHeight;
+          }
+        };
+        el.addEventListener("loadedmetadata", syncSize);
+        if (el.readyState >= 1) syncSize();
       })
       .catch(() => {
-        setError(
-          "Camera access was blocked. Allow camera permissions in your browser and reload."
-        );
+        if (!cancelled) {
+          setError(
+            "Camera access was blocked. Allow camera permissions in your browser and reload."
+          );
+        }
       });
 
     return () => {
+      cancelled = true;
       stream?.getTracks().forEach((t) => t.stop());
     };
   }, [active]);
@@ -57,7 +80,7 @@ const CameraView = forwardRef<HTMLVideoElement, Props>(function CameraView(
 
   return (
     <video
-      ref={videoRef}
+      ref={setVideoRef}
       autoPlay
       playsInline
       muted
